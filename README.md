@@ -9,7 +9,7 @@ documentation.
 ## Install
 
 ``` sh
-pip install fsdl_2022_course_project
+pip install course_copilot
 ```
 
 ## How to use
