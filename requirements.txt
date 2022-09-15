@@ -1,0 +1,7 @@
+datasets
+fastai 
+fastcore
+kaggle
+matplotlib
+ohmeow-blurr
+transformers[sentencepiece] 

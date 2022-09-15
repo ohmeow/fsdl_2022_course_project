@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "fsdl_2022_course_project"
+  site-url: "https://ohmeow.github.io/fsdl_2022_course_project"
+  description: "Course Co-pilot helps course creators create lesson summaries and chapter markers using ML"
+  repo-branch: master
+  repo-url: "https://github.com/ohmeow/fsdl_2022_course_project"
