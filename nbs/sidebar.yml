@@ -1,0 +1,4 @@
+website:
+  sidebar:
+    contents:
+      - 00_core.ipynb
