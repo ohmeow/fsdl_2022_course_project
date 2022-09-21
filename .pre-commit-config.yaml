@@ -1,4 +1,9 @@
 repos:
+  - repo: https://github.com/fastai/nbdev
+    rev: 2.2.10
+    hooks:
+      - id: nbdev_clean
+      - id: nbdev_export
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0
     hooks:
@@ -19,12 +24,6 @@ repos:
     rev: 22.3.0
     hooks:
       - id: black
-        exclude:
-            ^course_copilot/
-            setup.py
+        exclude: setup.py|course_copilot/
     # additional configuration of black in pyproject.toml
-  - repo: https://github.com/fastai/nbdev
-    rev: 2.2.10
-    hooks:
-      - id: nbdev_clean
-      - id: nbdev_export
+
