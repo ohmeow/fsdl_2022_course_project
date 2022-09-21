@@ -151,4 +151,3 @@ checklink/cookies.txt
 .quarto
 
 # app specific
-.pre-commit-config.yaml
