@@ -43,9 +43,3 @@ https://nbdev.fast.ai/tutorials/pre_commit.html
 ## Step 5: Install our library
 
 `pip install -e '.[dev]'`
-
-``` python
-1+1
-```
-
-    2

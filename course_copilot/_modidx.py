@@ -5,4 +5,6 @@ d = { 'settings': { 'branch': 'master',
                 'doc_host': 'https://ohmeow.github.io',
                 'git_url': 'https://github.com/ohmeow/fsdl_2022_course_project',
                 'lib_path': 'course_copilot'},
-  'syms': {'course_copilot.core': {'course_copilot.core.foo': ('core.html#foo', 'course_copilot/core.py')}}}
+  'syms': { 'course_copilot.utils': { 'course_copilot.utils.detect_env': ('utils.html#detect_env', 'course_copilot/utils.py'),
+                                      'course_copilot.utils.print_dev_environment': ( 'utils.html#print_dev_environment',
+                                                                                      'course_copilot/utils.py')}}}
