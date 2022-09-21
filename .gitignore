@@ -151,3 +151,4 @@ checklink/cookies.txt
 .quarto
 
 # app specific
+data/clean/
