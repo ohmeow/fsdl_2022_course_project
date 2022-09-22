@@ -12,13 +12,11 @@ from torch.nn import functional as F
 from fastai.losses import CrossEntropyLossFlat
 from fastai.test_utils import show_install
 
-
 # %% auto 0
 __all__ = ['default_seed', 'run_env', 'detect_env', 'print_dev_environment']
 
 # %% ../nbs/00_utils.ipynb 7
 default_seed = int(os.getenv("RANDOM_SEED", 42))
-
 
 # %% ../nbs/00_utils.ipynb 9
 def detect_env():
@@ -37,9 +35,7 @@ def detect_env():
 
 run_env = detect_env()
 
-
 # %% ../nbs/00_utils.ipynb 11
 def print_dev_environment():
     """Provides details on your development environment including packages installed, cuda/cudnn availability, GPUs, etc."""
     print(show_install())
-
