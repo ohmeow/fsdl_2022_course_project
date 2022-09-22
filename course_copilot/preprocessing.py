@@ -10,7 +10,6 @@ import pandas as pd
 
 from . import utils
 
-
 # %% auto 0
 __all__ = ['convert_duration_to_seconds', 'build_train_df', 'build_segmentation_train_df', 'build_summarization_train_df',
            'preprocess_data']
@@ -24,7 +23,6 @@ def convert_duration_to_seconds(
     hrs, mins, secs = v.split(":")
     return (60 * 60 * int(hrs)) + (60 * int(mins)) + int(secs)
 
-
 # %% ../nbs/01_preprocessing.ipynb 7
 def build_train_df(
     # The path to the data dir
@@ -32,7 +30,9 @@ def build_train_df(
     | Path = "../data/",
 ) -> pd.DataFrame:  # A preprocessed DataFrame suitable for both segmentation and summarization training
 
-    sheets_d = pd.read_excel(Path(data_path) / "raw/fsdl_2022_project_transcripts.xlsx", sheet_name=["lesson_topics", "lesson_transcripts"])
+    sheets_d = pd.read_excel(
+        Path(data_path) / "raw/fsdl_2022_project_transcripts.xlsx", sheet_name=["lesson_topics", "lesson_transcripts"]
+    )
     topics_df, transcripts_df = [v for k, v in sheets_d.items()]
 
     topics_df.drop(columns="video_url", inplace=True)
@@ -43,7 +43,9 @@ def build_train_df(
 
     # define the start/end boundaries (in seconds) for each topic in each lesson
     topics_df["start_seconds"] = topics_df["timestamp"].apply(convert_duration_to_seconds)
-    topics_df["end_seconds"] = topics_df.groupby(by=["course_title", "lesson_num"])["start_seconds"].shift(-1, fill_value=100000)
+    topics_df["end_seconds"] = topics_df.groupby(by=["course_title", "lesson_num"])["start_seconds"].shift(
+        -1, fill_value=100000
+    )
 
     # define the total number of elapsed seconds at each timestamp in the transcripts dataset
     transcripts_df["elapsed_seconds"] = transcripts_df["timestamp"].apply(convert_duration_to_seconds)
@@ -54,7 +56,9 @@ def build_train_df(
     )
 
     # keep only the merged records where the transcript lies inbetween the start/end of the topic
-    merged_df = merged_df[(merged_df.elapsed_seconds >= merged_df.start_seconds) & (merged_df.elapsed_seconds < merged_df.end_seconds)]
+    merged_df = merged_df[
+        (merged_df.elapsed_seconds >= merged_df.start_seconds) & (merged_df.elapsed_seconds < merged_df.end_seconds)
+    ]
 
     # for both segmentation and summarization tasks, we'll need to group the transcripts by course + lesson + topic
     train_df = (
@@ -67,7 +71,6 @@ def build_train_df(
     train_df.sort_values(by=["course_title", "lesson_num", "start_seconds"], inplace=True)
 
     return train_df
-
 
 # %% ../nbs/01_preprocessing.ipynb 8
 def build_segmentation_train_df(
@@ -92,13 +95,14 @@ def build_segmentation_train_df(
                         "topic": example["topic"],
                         "seq": str(seq),
                         "next_seq": str(example["transcript"][seq_idx + 1]),
-                        "other_topic_seqs": [str(txt) for i, txt in enumerate(example["transcript"]) if i != seq_idx and i != seq_idx + 1],
+                        "other_topic_seqs": [
+                            str(txt) for i, txt in enumerate(example["transcript"]) if i != seq_idx and i != seq_idx + 1
+                        ],
                     }
                 )
 
     seg_train_df = pd.DataFrame(seg_examples)
     return seg_train_df
-
 
 # %% ../nbs/01_preprocessing.ipynb 9
 def build_summarization_train_df(
@@ -108,9 +112,10 @@ def build_summarization_train_df(
     """For summarization, we want to concatenate all the sequences in a topic and use the resulting string to predict the topic"""
     summarization_train_df = train_df.copy()
 
-    summarization_train_df["transcript"] = summarization_train_df["transcript"].apply(lambda v: " ".join([str(seq) for seq in v]))
+    summarization_train_df["transcript"] = summarization_train_df["transcript"].apply(
+        lambda v: " ".join([str(seq) for seq in v])
+    )
     return summarization_train_df
-
 
 # %% ../nbs/01_preprocessing.ipynb 11
 def preprocess_data(
@@ -142,7 +147,6 @@ def preprocess_data(
     if return_file:
         return segmentation_train_df, summarization_train_df
 
-
 # %% ../nbs/01_preprocessing.ipynb 16
 if __name__ == "__main__" and utils.run_env == "script":
     # instantiate argparser
@@ -159,4 +163,3 @@ if __name__ == "__main__" and utils.run_env == "script":
         return_file=False,
         save_file=True,
     )
-
