@@ -86,20 +86,35 @@ def build_segmentation_train_df(
     seg_examples = []
 
     for example_idx, example in seg_train_df.iterrows():
+        is_last_example = len(seg_train_df) == (example_idx + 1)
+
         for seq_idx, seq in enumerate(example["transcript"]):
-            if len(example["transcript"]) > (seq_idx + 1):
-                seg_examples.append(
-                    {
-                        "course_title": example["course_title"],
-                        "lesson_num": example["lesson_num"],
-                        "topic": example["topic"],
-                        "seq": str(seq),
-                        "next_seq": str(example["transcript"][seq_idx + 1]),
-                        "other_topic_seqs": [
-                            str(txt) for i, txt in enumerate(example["transcript"]) if i != seq_idx and i != seq_idx + 1
-                        ],
-                    }
-                )
+            is_last_seq = len(example["transcript"]) == (seq_idx + 1)
+
+            if is_last_seq and is_last_example:
+                next_seq = None
+                next_topic_begin_seq = None
+            elif is_last_seq and not is_last_example:
+                next_seq = seg_train_df.iloc[example_idx + 1]["transcript"][0]
+                next_topic_begin_seq = next_seq
+            else:
+                next_seq = str(example["transcript"][seq_idx + 1])
+                next_topic_begin_seq = None
+
+            seg_examples.append(
+                {
+                    "course_title": example["course_title"],
+                    "lesson_num": example["lesson_num"],
+                    "topic": example["topic"],
+                    "seq": str(seq),
+                    "next_seq": next_seq,
+                    "is_topic_end": is_last_seq,
+                    "next_topic_begin_seq": next_topic_begin_seq,
+                    "other_topic_seqs": [
+                        str(txt) for i, txt in enumerate(example["transcript"]) if i != seq_idx and i != seq_idx + 1
+                    ],
+                }
+            )
 
     seg_train_df = pd.DataFrame(seg_examples)
     return seg_train_df

@@ -4,4 +4,5 @@ fastcore
 kaggle
 matplotlib
 ohmeow-blurr
+segeval
 transformers[sentencepiece]
