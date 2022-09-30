@@ -152,3 +152,6 @@ checklink/cookies.txt
 
 # app specific
 /data/clean/
+/nbs/_exp/models
+
+*.pkl

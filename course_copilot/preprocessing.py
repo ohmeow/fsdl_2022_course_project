@@ -101,12 +101,18 @@ def build_segmentation_train_df(
                 next_seq = str(example["transcript"][seq_idx + 1])
                 next_topic_begin_seq = None
 
+            if seq_idx == 0:
+                prev_seq = "xxBEGIN_TOPICxx"
+            else:
+                prev_seq = example["transcript"][seq_idx - 1]
+
             seg_examples.append(
                 {
                     "course_title": example["course_title"],
                     "lesson_num": example["lesson_num"],
                     "topic": example["topic"],
                     "seq": str(seq),
+                    "prev_seq": prev_seq,
                     "next_seq": next_seq,
                     "is_topic_end": is_last_seq,
                     "next_topic_begin_seq": next_topic_begin_seq,
@@ -117,6 +123,7 @@ def build_segmentation_train_df(
             )
 
     seg_train_df = pd.DataFrame(seg_examples)
+
     return seg_train_df
 
 # %% ../nbs/01_preprocessing.ipynb 9
