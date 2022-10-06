@@ -1,9 +1,10 @@
 datasets
+python-dotenv
 fastai
 fastcore
-kaggle
 matplotlib
 ohmeow-blurr
 optuna
 segeval
 transformers[sentencepiece]
+wandb
