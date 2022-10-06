@@ -46,10 +46,9 @@ from blurr.utils import PreCalculatedCrossEntropyLoss, PreCalculatedMSELoss, set
 from . import preprocessing, training, utils
 
 # %% auto 0
-__all__ = ['TopicSegmentationConfig', 'get_training_data', 'get_task_hf_objects', 'build_pos_inputs', 'build_neg_inputs',
-           'build_targets', 'SiameseBatchTokenizeTransform', 'get_dls', 'blurr_splitter_with_head',
-           'blurr_splitter_on_backbone', 'MarginRankingLoss', 'topic_seg_f1_score', 'TopicSegmentationModelWrapper',
-           'get_learner', 'depth_score_cal', 'get_validation_preds', 'get_preds', 'TopicSegmentationModelTrainer']
+__all__ = ['TopicSegmentationConfig', 'SiameseBatchTokenizeTransform', 'blurr_splitter_with_head', 'blurr_splitter_on_backbone',
+           'MarginRankingLoss', 'topic_seg_f1_score', 'TopicSegmentationModelWrapper', 'depth_score_cal',
+           'TopicSegmentationModelTrainer']
 
 # %% ../nbs/20_topic_segmentation.ipynb 5
 # silence all the HF warnings and load environment variables
@@ -102,7 +101,7 @@ class TopicSegmentationConfig(training.TrainConfig):
     unfrozen_lr_max = 1e-3
 
 # %% ../nbs/20_topic_segmentation.ipynb 14
-def get_training_data(cfg: TopicSegmentationConfig, data_dir="data", on_the_fly=False, split_type="cross_validation"):
+def _get_training_data(cfg: TopicSegmentationConfig, data_dir="data", on_the_fly=False, split_type="cross_validation"):
     if on_the_fly:
         raw_train_df, _ = preprocessing.preprocess_data(
             ds="train", data_path=data_dir, return_file=True, save_file=False
@@ -137,7 +136,7 @@ def get_training_data(cfg: TopicSegmentationConfig, data_dir="data", on_the_fly=
         raise NotImplementedError()
 
 # %% ../nbs/20_topic_segmentation.ipynb 18
-def get_task_hf_objects(cfg: TopicSegmentationConfig):
+def _get_task_hf_objects(cfg: TopicSegmentationConfig):
     # if 'only_seed_splits' = True, then we only care about reproducibility insofar as the training and
     # validation sets go
     if cfg.random_seed and not cfg.only_seed_splits:
@@ -167,7 +166,7 @@ def get_task_hf_objects(cfg: TopicSegmentationConfig):
     return hf_arch, hf_config, hf_tokenizer, hf_model
 
 # %% ../nbs/20_topic_segmentation.ipynb 21
-def build_pos_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_token="[SEP]"):
+def _build_pos_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_token="[SEP]"):
     seq_text = example["seq"].strip().lower() if cfg.lower_case else example["seq"].strip()
     next_seq_text = example["next_seq"].strip().lower() if cfg.lower_case else example["next_seq"].strip()
 
@@ -199,7 +198,7 @@ def build_pos_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_tok
     return inp
 
 # %% ../nbs/20_topic_segmentation.ipynb 22
-def build_neg_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_token="[SEP]", df=None):
+def _build_neg_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_token="[SEP]", df=None):
     seq_text = example["seq"].strip()
 
     # if at the last sequence for a topic, set the negative pair = seq + first sequence in next topic,
@@ -239,7 +238,7 @@ def build_neg_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_tok
     return inp
 
 # %% ../nbs/20_topic_segmentation.ipynb 23
-def build_targets(example):
+def _build_targets(example):
     return 0
 
 # %% ../nbs/20_topic_segmentation.ipynb 24
@@ -271,7 +270,7 @@ class SiameseBatchTokenizeTransform(BatchTokenizeTransform):
         return [(inps1[0], inps2[0], inps1[-1]) for inps1, inps2 in zip(updated_samples1, updated_samples2)]
 
 # %% ../nbs/20_topic_segmentation.ipynb 25
-def get_dls(cfg: TopicSegmentationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_model, val_idxs_or_fold):
+def _get_dls(cfg: TopicSegmentationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_model, val_idxs_or_fold):
     # define validation set
     if isinstance(val_idxs_or_fold, int):
         df["is_valid"] = df["k_fold"] == val_idxs_or_fold
@@ -297,9 +296,9 @@ def get_dls(cfg: TopicSegmentationConfig, df, hf_arch, hf_config, hf_tokenizer, 
 
     blocks = (TextBlock(batch_tokenize_tfm=batch_tokenize_tfm), noop, CategoryBlock)
 
-    get_pos_x = partial(build_pos_inputs, cfg=cfg, hf_tokenizer_sep_token=hf_tokenizer.sep_token)
-    get_neg_x = partial(build_neg_inputs, cfg=cfg, hf_tokenizer_sep_token=hf_tokenizer.sep_token, df=df)
-    get_y = partial(build_targets)
+    get_pos_x = partial(_build_pos_inputs, cfg=cfg, hf_tokenizer_sep_token=hf_tokenizer.sep_token)
+    get_neg_x = partial(_build_neg_inputs, cfg=cfg, hf_tokenizer_sep_token=hf_tokenizer.sep_token, df=df)
+    get_y = partial(_build_targets)
 
     dblock = DataBlock(
         blocks=blocks,
@@ -398,7 +397,7 @@ class TopicSegmentationModelWrapper(BaseModelWrapper):
         return pos_scores[:, 0], neg_scores[:, 0]
 
 # %% ../nbs/20_topic_segmentation.ipynb 34
-def get_learner(cfg: TopicSegmentationConfig, dls, hf_config, hf_model, learner_path="."):
+def _get_learner(cfg: TopicSegmentationConfig, dls, hf_config, hf_model, learner_path="."):
 
     if cfg.random_seed and not cfg.only_seed_splits:
         set_seed(cfg.random_seed)
@@ -468,7 +467,7 @@ def depth_score_cal(scores):
     return output_scores
 
 # %% ../nbs/20_topic_segmentation.ipynb 46
-def get_validation_preds(
+def _get_validation_preds(
     hf_model, hf_tokenizer, val_df, val_course_titles, batch_size=16, threshold_std_coeff=1.0, verbose=False
 ):
     hf_model.eval()
@@ -573,12 +572,11 @@ def get_validation_preds(
     return pd.concat(val_results)
 
 # %% ../nbs/20_topic_segmentation.ipynb 49
-def get_preds(data, learner_fpath, threshold_std_coeff=1.5):
-    inf_learn = load_learner(learner_fpath)
-    batch_tok_transform = first_blurr_tfm(inf_learn.dls)
-    batch_size = inf_learn.dls.bs
+def _get_preds(inf_learner, data, threshold_std_coeff=1.5):
+    batch_tok_transform = first_blurr_tfm(inf_learner.dls)
+    batch_size = inf_learner.dls.bs
 
-    inf_hf_model = inf_learn.model.hf_model.eval()
+    inf_hf_model = inf_learner.model.hf_model.eval()
     inf_hf_tokenizer = batch_tok_transform.hf_tokenizer
 
     # build seq + next_seq pairs
@@ -596,9 +594,9 @@ def get_preds(data, learner_fpath, threshold_std_coeff=1.5):
         batch = seq_pairs[i : i + batch_size]
         inputs = inf_hf_tokenizer(
             list(batch.itemgot(0)), list(batch.itemgot(1)), padding=True, max_length=True, return_tensors="pt"
-        )
+        ).to(inf_hf_model.device)
 
-        batch_scores = inf_learn.model.hf_model(**inputs)
+        batch_scores = inf_learner.model.hf_model(**inputs)
         scores += batch_scores[0][:, 0].detach().cpu()[:, None]
 
     # take the sigmoid so range is between 0 and 1 for each value
@@ -646,15 +644,10 @@ def get_preds(data, learner_fpath, threshold_std_coeff=1.5):
     data["pred_start"] = False
     data.loc[seg_idxs, "pred_start"] = True
 
-    # clean up
-    del inf_learn, inf_hf_model, inf_hf_tokenizer
-    torch.cuda.empty_cache()
-    gc.collect()
-
     # return the updated inference dataset and the topic start indices
     return data, seg_idxs
 
-# %% ../nbs/20_topic_segmentation.ipynb 55
+# %% ../nbs/20_topic_segmentation.ipynb 54
 class TopicSegmentationModelTrainer(training.ModelTrainer):
     def __init__(
         self,
@@ -683,11 +676,26 @@ class TopicSegmentationModelTrainer(training.ModelTrainer):
         )
 
     def get_training_data(self, on_the_fly=False, split_type="cross_validation"):
-        return get_training_data(
+        return _get_training_data(
             cfg=self.train_config, data_dir=self.data_path, on_the_fly=on_the_fly, split_type=split_type
         )
 
-# %% ../nbs/20_topic_segmentation.ipynb 57
+    def load_learner_or_model(self, model_learner_fpath: str | Path = None, device="cpu", mode="eval"):
+        if model_learner_fpath is None:
+            model_learner_fpath = f"{self.model_output_path}/{self.experiment_name}.pkl"
+
+        learn = load_learner(model_learner_fpath, cpu=device == "cpu")
+        learn.model = learn.model.to(device)
+        learn.dls = learn.dls.to(device)
+
+        if mode == "eval":
+            learn.model = learn.model.eval()
+        else:
+            learn.model = learn.model.train()
+
+        return learn
+
+# %% ../nbs/20_topic_segmentation.ipynb 56
 @patch
 def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
     # timing
@@ -710,19 +718,19 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
     if self.verbose:
         print("Building HF objects ...")
 
-    hf_arch, hf_config, hf_tokenizer, hf_model = get_task_hf_objects(self.train_config)
+    hf_arch, hf_config, hf_tokenizer, hf_model = _get_task_hf_objects(self.train_config)
 
     # --- step 3: DATALOADERS ---
     if self.verbose:
         print("Building DataLoaders ...")
 
-    dls = get_dls(self.train_config, df, hf_arch, hf_config, hf_tokenizer, hf_model, val_idxs_or_fold=val_idxs)
+    dls = _get_dls(self.train_config, df, hf_arch, hf_config, hf_tokenizer, hf_model, val_idxs_or_fold=val_idxs)
 
     # --- step 4: LEARNER ---
     if self.verbose:
         print("Building Learner ...")
 
-    learn = get_learner(self.train_config, dls, hf_config, hf_model, learner_path=self.model_output_path)
+    learn = _get_learner(self.train_config, dls, hf_config, hf_model, learner_path=self.model_output_path)
 
     # add any learner callbacks req. by the `ModelTrainer`
     if self.use_wandb:
@@ -792,7 +800,7 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
     # 5b: log actual predictions for the validation set
     if self.log_preds:
         val_course_titles = train_df.iloc[val_idxs]["course_title"].unique().tolist()
-        preds_df = get_validation_preds(
+        preds_df = _get_validation_preds(
             hf_model,
             hf_tokenizer,
             raw_df,
@@ -831,12 +839,10 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
 
     return results_df, raw_df, df, val_idxs
 
-# %% ../nbs/20_topic_segmentation.ipynb 61
+# %% ../nbs/20_topic_segmentation.ipynb 60
 @patch
-def predict(self: TopicSegmentationModelTrainer, data, **kwargs):
-
-    learner_fpath = kwargs.get("learner_fpath", f"{self.model_output_path}/{self.experiment_name}.pkl")
+def get_preds(self: TopicSegmentationModelTrainer, model_or_learner, data, **kwargs):
     threshold_std_coeff = kwargs.get("threshold_std_coeff", 1.0)
 
-    preds_df, pred_seg_idxs = get_preds(data, learner_fpath=learner_fpath, threshold_std_coeff=threshold_std_coeff)
+    preds_df, pred_seg_idxs = _get_preds(model_or_learner, data, threshold_std_coeff=threshold_std_coeff)
     return preds_df, pred_seg_idxs
