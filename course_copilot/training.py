@@ -21,7 +21,7 @@ load_dotenv()
 
 
 class TrainConfig:
-    training_subset = 1
+    training_subset = 1.0
     val_pct = 0.25
     random_seed = 2022
     only_seed_splits = True
