@@ -3,20 +3,107 @@
 # %% ../nbs/30_summarization.ipynb 3
 from __future__ import annotations
 
-import os, warnings
+import gc
+import os
+import warnings
 
+from blurr.text.data.seq2seq.core import Seq2SeqBatchTokenizeTransform, Seq2SeqTextBlock, default_text_gen_kwargs
+from blurr.text.modeling.core import BaseModelCallback, BaseModelWrapper
+from blurr.text.modeling.seq2seq.core import Seq2SeqMetricsCallback, blurr_seq2seq_splitter
+from blurr.text.utils import get_hf_objects
+from blurr.utils import PreCalculatedCrossEntropyLoss
 from fastcore.all import *
+from fastai.data.block import DataBlock, ColReader, ItemGetter, ColSplitter, RandomSplitter
+from fastai.callback.wandb import WandbCallback
 from fastai.imports import *
+from fastai.learner import *
+from fastai.losses import CrossEntropyLossFlat
+from fastai.optimizer import Adam, ranger
 from fastai.torch_core import *
 from fastai.torch_imports import *
 from transformers.utils import logging as hf_logging
+from transformers import PegasusForConditionalGeneration, BartForConditionalGeneration, T5ForConditionalGeneration
 
-from . import utils, training
+from . import utils, training, preprocessing
 
 # %% auto 0
-__all__ = []
+__all__ = ['SummarizationConfig']
 
-# %% ../nbs/30_summarization.ipynb 5
+# %% ../nbs/30_summarization.ipynb 7
 # silence all the HF warnings
 warnings.simplefilter("ignore")
 hf_logging.set_verbosity_error()
+
+# %% ../nbs/30_summarization.ipynb 11
+class SummarizationConfig(training.TrainConfig):
+    hf_model_cls = PegasusForConditionalGeneration
+    hf_model_checkpoint = "sshleifer/distill-pegasus-cnn-16-4"
+
+    # datablock/dataloaders
+    text_gen_kwargs = {}
+    tok_kwargs = {}
+
+    # learner
+    input_sequence_size = 1024
+    max_target_length = 5
+
+    batch_size = 2
+    use_fp16 = True
+
+# %% ../nbs/30_summarization.ipynb 14
+def _get_training_data(
+    cfg: SummarizationConfig, data_dir="../data"  # configuration for summarization  # data directory
+):
+    segmentation_df, summarization_df = preprocessing.preprocess_data(
+        ds="train", data_path=data_dir, return_file=True, save_file=False
+    )
+    return summarization_df
+
+# %% ../nbs/30_summarization.ipynb 17
+def _get_task_hf_objects(cfg: SummarizationConfig):
+    hf_tok_kwargs = {}
+    if cfg.hf_model_checkpoint == "sshleifer/tiny-mbart":
+        hf_tok_kwargs["src_lang"], hf_tok_kwargs["tgt_lang"] = "en_XX", "en_XX"
+
+    hf_arch, hf_config, hf_tokenizer, hf_model = get_hf_objects(
+        pretrained_model_name_or_path=cfg.hf_model_checkpoint,
+        model_cls=cfg.hf_model_cls,
+        tokenizer_kwargs=hf_tok_kwargs,
+    )
+    return hf_arch, hf_config, hf_tokenizer, hf_model
+
+# %% ../nbs/30_summarization.ipynb 20
+def _get_dls(cfg: SummarizationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_model):
+    if hf_arch in ["bart", "t5"]:
+        cfg.text_gen_kwargs = {**hf_config.task_specific_params["summarization"], **{"max_length": 40, "min_length": 5}}
+
+    # not all "summarization" parameters are for the model.generate method ... remove them here
+    generate_func_args = list(inspect.signature(hf_model.generate).parameters.keys())
+    for k in cfg.text_gen_kwargs.copy():
+        if k not in generate_func_args:
+            del text_gen_kwargs[k]
+
+    if hf_arch == "mbart":
+        cfg.text_gen_kwargs["decoder_start_token_id"] = hf_tokenizer.get_vocab()["en_XX"]
+
+    def add_t5_prefix(inp):
+        return f"summarize: {inp}" if (hf_arch == "t5") else inp
+
+    batch_tokenize_tfm = Seq2SeqBatchTokenizeTransform(
+        hf_arch,
+        hf_config,
+        hf_tokenizer,
+        hf_model,
+        padding="max_length",
+        max_length=cfg.input_sequence_size,
+        max_target_length=cfg.max_target_length,
+        text_gen_kwargs=cfg.text_gen_kwargs,
+    )
+
+    blocks = (Seq2SeqTextBlock(batch_tokenize_tfm=batch_tokenize_tfm), noop)
+    dblock = DataBlock(
+        blocks=blocks, get_x=ColReader("transcript"), get_y=ColReader("topic"), splitter=RandomSplitter()
+    )
+
+    dls = dblock.dataloaders(df, bs=cfg.batch_size)
+    return dls
