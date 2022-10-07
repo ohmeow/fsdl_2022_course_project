@@ -82,10 +82,13 @@ class ModelTrainer(abc.ABC):
         if self.use_wandb:
             wandb.finish(quiet=not self.verbose)
 
-    def predict(self, data, **kwargs):
+    def get_preds(self, model_or_learner, data, **kwargs):
         raise NotImplementedError()
 
     def tune(self):
+        raise NotImplementedError()
+
+    def load_learner_or_model(self, model_learner_fpath: str | Path = None, device="cpu", mode="eval"):
         raise NotImplementedError()
 
     def get_train_config_props(self):
