@@ -39,7 +39,6 @@ def build_train_config(train_config_cls, args):
 
 # %% ../nbs/90_tasks.ipynb 8
 def run_experiment(
-    model: str,
     experiment_name: str,
     data_path: str,
     model_output_path: str,
@@ -50,7 +49,7 @@ def run_experiment(
     verbose: bool,
     args=None,
 ):
-    if model == "topic_segmentation":
+    if experiment_name == "topic_segmentation":
         train_config = build_train_config(topic_segmentation.TopicSegmentationConfig, args)
 
         trainer = topic_segmentation.TopicSegmentationModelTrainer(
@@ -64,9 +63,9 @@ def run_experiment(
             use_wandb=use_wandb,
             verbose=verbose,
         )
-    elif model == "headline_summarization":
+    elif experiment_name == "headline_summarization":
         pass
-    elif model == "content_summarization":
+    elif experiment_name == "content_summarization":
         pass
 
     # run training
@@ -78,11 +77,6 @@ def run_tuning():
 
 # %% ../nbs/90_tasks.ipynb 10
 def add_required_args(parser):
-    # define required user-supplied args
-    parser.add_argument(
-        "--experiment", type=str, help="The name of your experiment (e.g., 'topic_segmentation_deberta_v3_small')"
-    )
-
     # define other `ModelTrainer` args
     parser.add_argument("--task", type=str, default="train", help="Options: train | tune")
     parser.add_argument("--data_path", type=str, default="data")
@@ -128,13 +122,12 @@ if __name__ == "__main__" and not IN_NOTEBOOK:
 
     # get the arg values
     args = parser.parse_args()
-    model = args.subcommand
+    experiment = args.subcommand
 
     # run the specific task task
     if args.task == "train":
         run_experiment(
-            model=model,
-            experiment_name=args.experiment,
+            experiment_name=experiment,
             data_path=args.data_path,
             model_output_path=args.models_path,
             log_output_path=args.logs_path,
