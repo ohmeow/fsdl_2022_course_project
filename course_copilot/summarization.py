@@ -3,10 +3,13 @@
 # %% ../nbs/30_summarization.ipynb 3
 from __future__ import annotations
 
+import datetime
 import gc
 import os
+import time
 import warnings
 
+import wandb
 from blurr.text.data.seq2seq.core import Seq2SeqBatchTokenizeTransform, Seq2SeqTextBlock, default_text_gen_kwargs
 from blurr.text.modeling.core import BaseModelCallback, BaseModelWrapper
 from blurr.text.modeling.seq2seq.core import Seq2SeqMetricsCallback, blurr_seq2seq_splitter
@@ -27,14 +30,14 @@ from transformers import PegasusForConditionalGeneration, BartForConditionalGene
 from . import utils, training, preprocessing
 
 # %% auto 0
-__all__ = ['SummarizationConfig']
+__all__ = ['SummarizationConfig', 'SummarizationModelTrainer']
 
-# %% ../nbs/30_summarization.ipynb 7
+# %% ../nbs/30_summarization.ipynb 6
 # silence all the HF warnings
 warnings.simplefilter("ignore")
 hf_logging.set_verbosity_error()
 
-# %% ../nbs/30_summarization.ipynb 11
+# %% ../nbs/30_summarization.ipynb 10
 class SummarizationConfig(training.TrainConfig):
     hf_model_cls = PegasusForConditionalGeneration
     hf_model_checkpoint = "sshleifer/distill-pegasus-cnn-16-4"
@@ -44,22 +47,21 @@ class SummarizationConfig(training.TrainConfig):
     tok_kwargs = {}
 
     # learner
-    input_sequence_size = 1024
+    input_sequence_size = 512
     max_target_length = 5
 
-    batch_size = 2
+    batch_size = 8
     use_fp16 = True
+    use_wandb = True
 
-# %% ../nbs/30_summarization.ipynb 14
-def _get_training_data(
-    cfg: SummarizationConfig, data_dir="../data"  # configuration for summarization  # data directory
-):
+# %% ../nbs/30_summarization.ipynb 13
+def _get_training_data(cfg: SummarizationConfig, data_dir="data"):  # configuration for summarization  # data directory
     segmentation_df, summarization_df = preprocessing.preprocess_data(
         ds="train", data_path=data_dir, return_file=True, save_file=False
     )
     return summarization_df
 
-# %% ../nbs/30_summarization.ipynb 17
+# %% ../nbs/30_summarization.ipynb 16
 def _get_task_hf_objects(cfg: SummarizationConfig):
     hf_tok_kwargs = {}
     if cfg.hf_model_checkpoint == "sshleifer/tiny-mbart":
@@ -72,12 +74,13 @@ def _get_task_hf_objects(cfg: SummarizationConfig):
     )
     return hf_arch, hf_config, hf_tokenizer, hf_model
 
-# %% ../nbs/30_summarization.ipynb 20
+# %% ../nbs/30_summarization.ipynb 19
 def _get_dls(cfg: SummarizationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_model):
     if hf_arch in ["bart", "t5"]:
         cfg.text_gen_kwargs = {**hf_config.task_specific_params["summarization"], **{"max_length": 40, "min_length": 5}}
 
     # not all "summarization" parameters are for the model.generate method ... remove them here
+    # TODO: add text_gen_kwargs dynamically
     generate_func_args = list(inspect.signature(hf_model.generate).parameters.keys())
     for k in cfg.text_gen_kwargs.copy():
         if k not in generate_func_args:
@@ -107,3 +110,84 @@ def _get_dls(cfg: SummarizationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_
 
     dls = dblock.dataloaders(df, bs=cfg.batch_size)
     return dls
+
+# %% ../nbs/30_summarization.ipynb 33
+class SummarizationModelTrainer(training.ModelTrainer):
+    def __init__(
+        self,
+        experiment_name,
+        train_config: SummarizationConfig,
+        data_path="data",
+        model_output_path="models",
+        log_output_path="logs",
+        log_preds=False,
+        log_n_preds=None,
+        use_wandb=False,
+        verbose=False,
+        **kwargs,
+    ):
+        super().__init__(
+            experiment_name=experiment_name,
+            train_config=train_config,
+            data_path=data_path,
+            model_output_path=model_output_path,
+            log_output_path=log_output_path,
+            log_preds=log_preds,
+            log_n_preds=log_n_preds,
+            use_wandb=use_wandb,
+            verbose=verbose,
+            **kwargs,
+        )
+
+    def get_training_data(self):
+        return _get_training_data(cfg=self.train_config, data_dir=self.data_path)
+
+# %% ../nbs/30_summarization.ipynb 35
+@patch
+def train(self: SummarizationModelTrainer):
+    # timing
+    start = time.time()
+
+    yyyymmddHm = datetime.today().strftime("%Y%m%d_%H%m")
+    seed = self.train_config.random_seed
+
+    summarization_df = self.get_training_data()
+
+    hf_arch, hf_config, hf_tokenizer, hf_model = _get_task_hf_objects(self.train_config)
+
+    dls = _get_dls(self.train_config, summarization_df, hf_arch, hf_config, hf_tokenizer, hf_model)
+
+    learn = _get_learner(cfg=self.train_config, dls=dls, hf_config=hf_config, hf_model=hf_model, hf_arch=hf_arch)
+
+    seq2seq_metrics = {
+        "rouge": {
+            "compute_kwargs": {"rouge_types": ["rouge1", "rouge2", "rougeL", "rougeLsum"], "use_stemmer": True},
+            "returns": ["rouge1", "rouge2", "rougeL", "rougeLsum"],
+        }
+    }
+    fit_cbs = [Seq2SeqMetricsCallback(custom_metrics=seq2seq_metrics)]
+    if self.use_wandb:
+        fit_cbs.append(WandbCallback(log_preds=False))
+
+    if self.train_config.random_seed and not self.train_config.only_seed_splits:
+        set_seed(self.train_config.random_seed)
+
+    learn.fit_one_cycle(
+        self.train_config.n_unfrozen_epochs,
+        cbs=fit_cbs,
+        lr_max=1e-4,
+    )
+
+    end = time.time()
+
+    learn.metrics = None
+    learn.export(self.model_output_path / f"{self.experiment_name}.pkl")
+
+    # clean up
+    super(self.__class__, self).train()
+
+    del learn, dls, hf_model, hf_tokenizer, hf_config
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    return None
