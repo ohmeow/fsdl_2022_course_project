@@ -799,7 +799,7 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
 
     # 5b: log actual predictions for the validation set
     if self.log_preds:
-        val_course_titles = train_df.iloc[val_idxs]["course_title"].unique().tolist()
+        val_course_titles = df.iloc[val_idxs]["course_title"].unique().tolist()
         preds_df = _get_validation_preds(
             hf_model,
             hf_tokenizer,
