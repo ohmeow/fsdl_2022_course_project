@@ -46,9 +46,9 @@ from blurr.utils import PreCalculatedCrossEntropyLoss, PreCalculatedMSELoss, set
 from . import preprocessing, training, utils
 
 # %% auto 0
-__all__ = ['TopicSegmentationConfig', 'SiameseBatchTokenizeTransform', 'blurr_splitter_with_head', 'blurr_splitter_on_backbone',
-           'MarginRankingLoss', 'topic_seg_f1_score', 'TopicSegmentationModelWrapper', 'depth_score_cal',
-           'TopicSegmentationModelTrainer']
+__all__ = ['default_sweep_config', 'TopicSegmentationConfig', 'SiameseBatchTokenizeTransform', 'blurr_splitter_with_head',
+           'blurr_splitter_on_backbone', 'MarginRankingLoss', 'topic_seg_f1_score', 'TopicSegmentationModelWrapper',
+           'depth_score_cal', 'TopicSegmentationModelTrainer']
 
 # %% ../nbs/20_topic_segmentation.ipynb 5
 # silence all the HF warnings and load environment variables
@@ -478,7 +478,7 @@ def _get_validation_preds(
     val_results = []
     for ct in val_course_titles:
         for ln in val_df[val_df["course_title"] == ct]["lesson_num"].unique().tolist():
-            inf_df = raw_train_df[(raw_train_df["course_title"] == ct) & (raw_train_df["lesson_num"] == ln)].copy()
+            inf_df = val_df[(val_df["course_title"] == ct) & (val_df["lesson_num"] == ln)].copy()
             inf_df.reset_index(inplace=True)
 
             if verbose:
@@ -663,6 +663,7 @@ class TopicSegmentationModelTrainer(training.ModelTrainer):
         **kwargs,
     ):
         super().__init__(
+            task="topic_segmentation",
             experiment_name=experiment_name,
             train_config=train_config,
             data_path=data_path,
@@ -697,13 +698,22 @@ class TopicSegmentationModelTrainer(training.ModelTrainer):
 
 # %% ../nbs/20_topic_segmentation.ipynb 56
 @patch
-def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
-    # timing
+def train(self: TopicSegmentationModelTrainer, sweep_config: dict = None):
+    # setup
     start = time.time()
-
     yyyymmddHm = datetime.today().strftime("%Y%m%d_%H%m")
     seed = self.train_config.random_seed
 
+    # --- step 0: init the WANDB run if logging to wandb and update the training config from the sweep config if doing a sweep
+    is_sweep = True if sweep_config is not None else False
+
+    if self.use_wandb:
+        run = self.init_wandb_run(is_sweep)
+
+    if is_sweep:
+        self.update_train_config_from_sweep_params(sweep_config["parameters"])
+
+    # --- BEGIN TRAINING ---
     if self.verbose:
         print(f"Experiment: {self.experiment_name}")
         print(f"Training config: f{self.get_train_config_props()}")
@@ -733,11 +743,8 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
     learn = _get_learner(self.train_config, dls, hf_config, hf_model, learner_path=self.model_output_path)
 
     # add any learner callbacks req. by the `ModelTrainer`
-    if self.use_wandb:
+    if self.use_wandb and not is_sweep:
         learn.add_cb(WandbCallback(log_preds=False))
-
-    if trial is not None:
-        learn.add_cb(FastAIPruningCallback(trial, monitor="valid_loss"))
 
     # add any fit callbacks req. by the `ModelTrainer`
     fit_cbs = []
@@ -752,7 +759,7 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
             SaveModelCallback(
                 monitor="valid_loss",
                 comp=np.less,
-                fname=f"temp_best_f1_{self.experiment_name}",
+                fname=f"temp_best_loss_{self.task}_{self.experiment_name}",
                 reset_on_fit=False,
             )
         )
@@ -780,55 +787,64 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
         )
 
     end = time.time()
+    # --- END TRAINING ---
 
-    # --- step 5: LOG RESULTS ---
-    if self.verbose:
-        print("Logging results ...")
-
-    # 5a: log high level results (metrics, loss, training configuration)
+    # grab the final results
     res = learn.validate()
 
-    train_config_df = pd.DataFrame(
-        [self.get_train_config_props()], columns=[k for k in self.get_train_config_props().keys()]
-    )
-    metrics_df = pd.DataFrame([res], columns=learn.recorder.metric_names[2:-1])
+    if not is_sweep:
+        # --- step 5: LOG RESULTS ---
+        if self.verbose:
+            print("Logging results ...")
 
-    results_df = pd.concat([train_config_df, metrics_df], axis=1)
-    results_df["time"] = end - start
-    results_df.to_csv(f"{self.log_output_path}/{self.experiment_name}_{yyyymmddHm}_results.csv", index=None)
-
-    # 5b: log actual predictions for the validation set
-    if self.log_preds:
-        val_course_titles = df.iloc[val_idxs]["course_title"].unique().tolist()
-        preds_df = _get_validation_preds(
-            hf_model,
-            hf_tokenizer,
-            raw_df,
-            val_course_titles[: self.log_n_preds],
-            batch_size=learn.dls[1].bs,
-            threshold_std_coeff=1.0,
-            verbose=self.verbose,
+        # 5a: log high level results (metrics, loss, training configuration)
+        train_config_df = pd.DataFrame(
+            [self.get_train_config_props()], columns=[k for k in self.get_train_config_props().keys()]
         )
-        preds_df.to_csv(f"{self.log_output_path}/{self.experiment_name}_{yyyymmddHm}_preds.csv", index=None)
+        metrics_df = pd.DataFrame([res], columns=learn.recorder.metric_names[2:-1])
 
-        if self.use_wandb:
-            wandb.run.summary["valid_loss"] = results_df.iloc[0]["valid_loss"]
-            wandb.run.summary["topic_seg_f1_score"] = results_df.iloc[0]["topic_seg_f1_score"]
+        results_df = pd.concat([train_config_df, metrics_df], axis=1)
+        results_df["time"] = end - start
+        results_df.to_csv(
+            f"{self.log_output_path}/{self.task}_{self.experiment_name}_{yyyymmddHm}_results.csv", index=None
+        )
 
-            table = wandb.Table(data=preds_df)
-            wandb.log({"Prediction_Samples": table})
+        # 5b: log actual predictions for the validation set
+        if self.log_preds:
+            val_course_titles = df.iloc[val_idxs]["course_title"].unique().tolist()
+            preds_df = _get_validation_preds(
+                hf_model,
+                hf_tokenizer,
+                raw_df,
+                val_course_titles[: self.log_n_preds],
+                batch_size=learn.dls[1].bs,
+                threshold_std_coeff=1.0,
+                verbose=self.verbose,
+            )
+            preds_df.to_csv(
+                f"{self.log_output_path}/{self.task}_{self.experiment_name}_{yyyymmddHm}_preds.csv", index=None
+            )
 
-            wandb.run.summary["state"] = "completed"
+            if self.use_wandb:
+                wandb.run.summary["valid_loss"] = results_df.iloc[0]["valid_loss"]
+                wandb.run.summary["topic_seg_f1_score"] = results_df.iloc[0]["topic_seg_f1_score"]
 
-    # --- step 5: SAVE MODEL (except when tuning) ---
-    if trial is None:
+                table = wandb.Table(data=preds_df)
+                wandb.log({"Prediction_Samples": table})
+
+                wandb.run.summary["state"] = "completed"
+
+        # --- step 5: SAVE MODEL (except when tuning) ---
         if self.verbose:
             print("Saving model ...")
 
-        learn.export(self.model_output_path / f"{self.experiment_name}.pkl")
+        learn.export(self.model_output_path / f"{self.task}_{self.experiment_name}.pkl")
+    else:
+        params_to_log_d = {m_name: m_val for m_name, m_val in zip(learn.recorder.metric_names[2:-1], res)}
+        wandb.log(params_to_log_d)
 
     # clean up
-    super(self.__class__, self).train()
+    super(self.__class__, self).train(sweep_config)
 
     del learn, dls, hf_model, hf_tokenizer, hf_config
     torch.cuda.empty_cache()
@@ -837,7 +853,10 @@ def train(self: TopicSegmentationModelTrainer, trial: optuna.Trial = None):
     if self.verbose:
         print("End training")
 
-    return results_df, raw_df, df, val_idxs
+    if not is_sweep:
+        return results_df, raw_df, df, val_idxs
+    else:
+        return
 
 # %% ../nbs/20_topic_segmentation.ipynb 60
 @patch
@@ -846,3 +865,14 @@ def get_preds(self: TopicSegmentationModelTrainer, model_or_learner, data, **kwa
 
     preds_df, pred_seg_idxs = _get_preds(model_or_learner, data, threshold_std_coeff=threshold_std_coeff)
     return preds_df, pred_seg_idxs
+
+# %% ../nbs/20_topic_segmentation.ipynb 64
+default_sweep_config = {
+    "method": "random",  # grid | random | bayes
+    "name": "topic_segmentation_sweep",
+    "metric": {"goal": "minimize", "name": "valid_loss"},
+    "parameters": {
+        "unfrozen_lr_min": {"max": 1e-4, "min": 1e-6},
+        "unfrozen_lr_max": {"max": 1e-3, "min": 1e-4},
+    },
+}

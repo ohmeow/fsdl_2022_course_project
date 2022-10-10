@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import abc, inspect, os
+from functools import partial
 from pathlib import Path
 import random
 
@@ -36,6 +37,7 @@ def get_train_config_props(cfg: TrainConfig):
 class ModelTrainer(abc.ABC):
     def __init__(
         self,
+        task,
         experiment_name,
         train_config: TrainConfig,
         data_path="data",
@@ -47,6 +49,7 @@ class ModelTrainer(abc.ABC):
         verbose=False,
         **kwargs,
     ):
+        self.task = task
         self.experiment_name = experiment_name
         self.train_config = train_config
 
@@ -59,37 +62,56 @@ class ModelTrainer(abc.ABC):
         self.log_output_path.mkdir(parents=True, exist_ok=True)
         self.log_preds = log_preds
         self.log_n_preds = log_n_preds
+
         self.use_wandb = use_wandb
+        if self.use_wandb:
+            wandb.login()
 
         self.verbose = verbose
 
-        if self.use_wandb:
-            wandb.login()
-            wandb.init(
-                project=os.environ["WANDB_PROJECT_NAME"],
-                entity=os.environ["WANDB_TEAM"],
-                group=self.experiment_name,
-                config=get_train_config_props(self.train_config),
-                dir=self.log_output_path,
-                reinit=True,
-            )
-
+    # --- training ---
     @abc.abstractmethod
     def get_training_data(self, on_the_fly=False, split_type="cross_validation"):
         pass
 
-    def train(self, trial: optuna.Trial = None):
-        if self.use_wandb:
+    def train(self, sweep_config: dict = None):
+        if self.use_wandb and sweep_config is None:
             wandb.finish(quiet=not self.verbose)
+
+    # --- inference ---
+    def load_learner_or_model(self, model_learner_fpath: str | Path = None, device="cpu", mode="eval"):
+        raise NotImplementedError()
 
     def get_preds(self, model_or_learner, data, **kwargs):
         raise NotImplementedError()
 
-    def tune(self):
-        raise NotImplementedError()
+    # --- wandb ---
+    def init_wandb_run(self, is_sweep: bool = False):
+        run = wandb.init(
+            project=f"{os.environ['WANDB_PROJECT_NAME']}-{self.task}",
+            entity=os.environ["WANDB_TEAM"],
+            group=f"{self.experiment_name}_sweep" if is_sweep else self.experiment_name,
+            config=get_train_config_props(self.train_config),
+            dir=self.log_output_path,
+            reinit=True,
+        )
 
-    def load_learner_or_model(self, model_learner_fpath: str | Path = None, device="cpu", mode="eval"):
-        raise NotImplementedError()
+        return run
 
+    def configure_sweep(self, sweep_config: dict = None):
+        sweep_id = wandb.sweep(
+            sweep=sweep_config,
+            project=f"{os.environ['WANDB_PROJECT_NAME']}-{self.task}",
+            entity=os.environ["WANDB_TEAM"],
+        )
+        return sweep_id
+
+    def update_train_config_from_sweep_params(self, params_d: dict):
+        pass
+        for k, v in params_d.items():
+            if hasattr(self.train_config, k):
+                setattr(self.train_config, k, wandb.config[k])
+
+    # --- utility ---
     def get_train_config_props(self):
         return get_train_config_props(self.train_config)

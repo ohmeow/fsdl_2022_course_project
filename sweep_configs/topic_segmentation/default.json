@@ -1,0 +1,18 @@
+{
+  "method": "random",
+  "name": "topic_segmentation_sweep",
+  "metric": {
+    "goal": "minimize",
+    "name": "valid_loss"
+  },
+  "parameters": {
+    "unfrozen_lr_min": {
+      "max": 1e-4,
+      "min": 1e-6
+    },
+    "unfrozen_lr_max": {
+      "max": 1e-3,
+      "min": 1e-4
+    }
+  }
+}

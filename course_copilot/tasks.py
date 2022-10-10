@@ -3,16 +3,18 @@
 # %% ../nbs/90_tasks.ipynb 3
 from __future__ import annotations
 
-import argparse, os, warnings
+import argparse, json, os, warnings
+from functools import partial
 from pathlib import Path
 
 from dotenv import load_dotenv
 from transformers import logging as hf_logging
+import wandb
 
 from . import utils, training, topic_segmentation, summarization
 
 # %% auto 0
-__all__ = ['build_train_config', 'run_experiment', 'run_tuning', 'add_required_args']
+__all__ = ['build_train_config', 'run_experiment', 'prepare_tuning', 'add_required_args']
 
 # %% ../nbs/90_tasks.ipynb 5
 # silence all the HF warnings and load environment variables
@@ -39,6 +41,7 @@ def build_train_config(train_config_cls, args):
 
 # %% ../nbs/90_tasks.ipynb 8
 def run_experiment(
+    task,
     experiment_name: str,
     data_path: str,
     model_output_path: str,
@@ -49,7 +52,7 @@ def run_experiment(
     verbose: bool,
     args=None,
 ):
-    if experiment_name == "topic_segmentation":
+    if task == "topic_segmentation":
         train_config = build_train_config(topic_segmentation.TopicSegmentationConfig, args)
 
         trainer = topic_segmentation.TopicSegmentationModelTrainer(
@@ -63,28 +66,61 @@ def run_experiment(
             use_wandb=use_wandb,
             verbose=verbose,
         )
-    elif experiment_name == "headline_summarization":
+    elif task == "headline_summarization":
         pass
-    elif experiment_name == "content_summarization":
+    elif task == "content_summarization":
         pass
 
     # run training
     results_df, raw_df, train_df, train_val_idxs = trainer.train()
 
 # %% ../nbs/90_tasks.ipynb 9
-def run_tuning():
-    pass
+def prepare_tuning(
+    task,
+    experiment_name: str,
+    data_path: str,
+    model_output_path: str,
+    log_output_path: str,
+    log_preds: bool,
+    log_n_preds: int,
+    use_wandb: bool,
+    verbose: bool,
+    args=None,
+):
+    if task == "topic_segmentation":
+        train_config = build_train_config(topic_segmentation.TopicSegmentationConfig, args)
+
+        trainer = topic_segmentation.TopicSegmentationModelTrainer(
+            experiment_name=experiment_name,
+            train_config=train_config,
+            data_path=data_path,
+            model_output_path=model_output_path,
+            log_output_path=log_output_path,
+            log_preds=log_preds,
+            log_n_preds=log_n_preds,
+            use_wandb=use_wandb,
+            verbose=verbose,
+        )
+    elif task == "headline_summarization":
+        pass
+    elif task == "content_summarization":
+        pass
+
+    return trainer
 
 # %% ../nbs/90_tasks.ipynb 10
 def add_required_args(parser):
     # define other `ModelTrainer` args
     parser.add_argument("--task", type=str, default="train", help="Options: train | tune")
-    parser.add_argument("--data_path", type=str, default="data")
-    parser.add_argument("--models_path", type=str, default="models")
-    parser.add_argument("--logs_path", type=str, default="logs")
+    parser.add_argument("--experiment", type=str, default="test_experiment")
+    parser.add_argument("--data_path", type=str, default="./data")
+    parser.add_argument("--models_path", type=str, default="./models")
+    parser.add_argument("--logs_path", type=str, default="./logs")
     parser.add_argument("--log_preds", type=bool, default=False)
     parser.add_argument("--log_n_preds", type=int, default=10)
     parser.add_argument("--use_wandb", type=bool, default=False)
+    parser.add_argument("--sweep_config_fpath", type=str, default=None)
+    parser.add_argument("--sweep_trials", type=int, default=20)
     parser.add_argument("--verbose", type=bool, default=False)
 
     return parser
@@ -122,12 +158,26 @@ if __name__ == "__main__" and not IN_NOTEBOOK:
 
     # get the arg values
     args = parser.parse_args()
-    experiment = args.subcommand
+    task = args.subcommand
 
     # run the specific task task
     if args.task == "train":
         run_experiment(
-            experiment_name=experiment,
+            task,
+            experiment_name=args.experiment,
+            data_path=args.data_path,
+            model_output_path=args.models_path,
+            log_output_path=args.logs_path,
+            log_preds=args.log_preds,
+            log_n_preds=args.log_n_preds,
+            use_wandb=args.use_wandb,
+            verbose=args.verbose,
+            args=args,
+        )
+    elif args.task == "tune":
+        trainer = prepare_tuning(
+            task,
+            experiment_name=args.experiment,
             data_path=args.data_path,
             model_output_path=args.models_path,
             log_output_path=args.logs_path,
@@ -138,5 +188,15 @@ if __name__ == "__main__" and not IN_NOTEBOOK:
             args=args,
         )
 
-    elif args.task == "tune":
-        pass
+        sweep_config_fpath = (
+            f"./sweep_configs/{task}/default.json" if args.sweep_config_fpath is None else args.sweep_config_fpath
+        )
+        with open(sweep_config_fpath, "r") as f:
+            sweep_config_d = json.load(f)
+
+        # https://docs.wandb.ai/guides/sweeps/faq#how-can-i-change-the-directory-my-sweep-logs-to-locally
+        os.environ["WANDB_DIR"] = args.logs_path
+
+        # begin the sweep
+        sweep_id = trainer.configure_sweep(sweep_config=sweep_config_d)
+        wandb.agent(sweep_id, function=partial(trainer.train, sweep_config=sweep_config_d), count=args.sweep_trials)
