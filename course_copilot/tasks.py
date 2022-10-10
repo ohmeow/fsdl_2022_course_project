@@ -66,10 +66,35 @@ def run_experiment(
             use_wandb=use_wandb,
             verbose=verbose,
         )
-    elif task == "headline_summarization":
-        pass
-    elif task == "content_summarization":
-        pass
+    elif experiment_name == "headline_summarization":
+        train_config = build_train_config(summarization.SummarizationConfig, args)
+
+        trainer = summarization.SummarizationModelTrainer(
+            experiment_name=experiment_name,
+            train_config=train_config,
+            data_path=data_path,
+            model_output_path=model_output_path,
+            log_output_path=log_output_path,
+            log_preds=log_preds,
+            log_n_preds=log_n_preds,
+            use_wandb=use_wandb,
+            verbose=verbose,
+        )
+
+    elif experiment_name == "content_summarization":
+        train_config = build_train_config(summarization.SummarizationConfig, args)
+
+        trainer = summarization.SummarizationModelTrainer(
+            experiment_name=experiment_name,
+            train_config=train_config,
+            data_path=data_path,
+            model_output_path=model_output_path,
+            log_output_path=log_output_path,
+            log_preds=log_preds,
+            log_n_preds=log_n_preds,
+            use_wandb=use_wandb,
+            verbose=verbose,
+        )
 
     # run training
     results_df, raw_df, train_df, train_val_idxs = trainer.train()
@@ -129,6 +154,9 @@ def add_required_args(parser):
 if __name__ == "__main__" and not IN_NOTEBOOK:
     train_config_attrs = [(k, type(v), v) for k, v in vars(training.TrainConfig).items() if not k.startswith("_")]
 
+    headline_summarization_train_config_attrs = train_config_attrs
+    content_summarization_train_config_attrs = train_config_attrs
+
     # instantiate argparser
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subcommand", help="Sub-commands help")
@@ -143,18 +171,21 @@ if __name__ == "__main__" and not IN_NOTEBOOK:
         parser_topic_segmentation.add_argument(f"--{attr[0]}", type=attr[1], default=attr[2])
 
     # # instantiate argparser for headline summarization
-    # parser_headline_summarization = subparsers.add_parser("headline_summarization", help="Headling summarization")
-    # add_required_args(parser_headline_summarization)
-    # train_config_attrs += [(k, type(v), v) for k, v in vars(summarization.HeadlineSummarizationConfig).items() if not k.startswith("_")]
-    # for attr in train_config_attrs:
-    #     parser_headline_summarization.add_argument(f"--{attr[0]}", type=attr[1], default=attr[2])
+    parser_headline_summarization = subparsers.add_parser("headline_summarization", help="Headling summarization")
+    add_required_args(parser_headline_summarization)
+    headline_summarization_train_config_attrs += [
+        (k, type(v), v) for k, v in vars(summarization.HeadlineSummarizationConfig).items() if not k.startswith("_")
+    ]
 
-    # # instantiate argparser for headline summarization
-    # parser_content_summarization = subparsers.add_parser("content_summarization", help="Content summarization")
-    # add_required_args(parser_content_summarization)
-    # train_config_attrs += [(k, type(v), v) for k, v in vars(summarization.ContentSummarizationConfig).items() if not k.startswith("_")]
-    # for attr in train_config_attrs:
-    #     parser_content_summarization.add_argument(f"--{attr[0]}", type=attr[1], default=attr[2])
+    for attr in headline_summarization_train_config_attrs:
+        parser_headline_summarization.add_argument(f"--{attr[0]}", type=attr[1], default=attr[2])
+
+    #     # # instantiate argparser for content summarization
+    #     parser_content_summarization = subparsers.add_parser("content_summarization", help="Content summarization")
+    #     add_required_args(parser_content_summarization)
+    #     content_summarization_train_config_attrs += [(k, type(v), v) for k, v in vars(summarization.ContentSummarizationConfig).items() if not k.startswith("_")]
+    #     for attr in content_summarization_train_config_attrs:
+    #         parser_content_summarization.add_argument(f"--{attr[0]}", type=attr[1], default=attr[2])
 
     # get the arg values
     args = parser.parse_args()
