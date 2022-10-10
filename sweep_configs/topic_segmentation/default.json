@@ -6,6 +6,74 @@
     "name": "valid_loss"
   },
   "parameters": {
+    "use_next_pos_prob": {
+      "min": 0.25,
+      "max": 0.8
+    },
+    "use_adjacent_neg_prob": {
+      "min": 0.25,
+      "max": 0.8
+    },
+    "one_cycle_moms_start": {
+      "distribution": "categorical",
+      "values": [
+        0.99,
+        0.97,
+        0.95,
+        0.9,
+        0.85,
+        0.8
+      ]
+    },
+    "one_cycle_moms_min": {
+      "distribution": "categorical",
+      "values": [
+        0.85,
+        0.8,
+        0.75,
+        0.7
+      ]
+    },
+    "one_cycle_moms_end": {
+      "distribution": "categorical",
+      "values": [
+        0.99,
+        0.97,
+        0.95,
+        0.9,
+        0.85,
+        0.8
+      ]
+    },
+    "adam_beta2": {
+      "max": 0.999,
+      "min": 0.99
+    },
+    "adam_eps": {
+      "distribution": "log_uniform_values",
+      "min": 1e-9,
+      "max": 1e-5
+    },
+    "weight_decay": {
+      "distribution": "categorical",
+      "values": [
+        0.0,
+        1e-4,
+        1e-5,
+        1e-6,
+        1e-7,
+        1e-8
+      ]
+    },
+    "max_grad_norm": {
+      "distribution": "categorical",
+      "values": [
+        null,
+        1.0,
+        2.0,
+        4.0
+      ]
+    },
     "unfrozen_lr_min": {
       "max": 1e-4,
       "min": 1e-6

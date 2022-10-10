@@ -66,7 +66,7 @@ def run_experiment(
             use_wandb=use_wandb,
             verbose=verbose,
         )
-    elif experiment_name == "headline_summarization":
+    elif task == "headline_summarization":
         train_config = build_train_config(summarization.SummarizationConfig, args)
 
         trainer = summarization.SummarizationModelTrainer(
@@ -81,7 +81,7 @@ def run_experiment(
             verbose=verbose,
         )
 
-    elif experiment_name == "content_summarization":
+    elif task == "content_summarization":
         train_config = build_train_config(summarization.SummarizationConfig, args)
 
         trainer = summarization.SummarizationModelTrainer(
