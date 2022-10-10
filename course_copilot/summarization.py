@@ -30,7 +30,7 @@ from transformers import PegasusForConditionalGeneration, BartForConditionalGene
 from . import utils, training, preprocessing
 
 # %% auto 0
-__all__ = ['SummarizationConfig', 'SummarizationModelTrainer']
+__all__ = ['SummarizationConfig', 'ContentSummarizationConfig', 'HeadlineSummarizationConfig', 'SummarizationModelTrainer']
 
 # %% ../nbs/30_summarization.ipynb 6
 # silence all the HF warnings
@@ -54,14 +54,23 @@ class SummarizationConfig(training.TrainConfig):
     use_fp16 = True
     use_wandb = True
 
+# %% ../nbs/30_summarization.ipynb 11
+class ContentSummarizationConfig(SummarizationConfig):
+    max_target_length = 80
+    text_gen_kwargs = {"do_sample": True, "max_length": 100, "top_k": 50, "top_p": 0.95}
+
 # %% ../nbs/30_summarization.ipynb 13
+class HeadlineSummarizationConfig(SummarizationConfig):
+    max_target_length = 10
+
+# %% ../nbs/30_summarization.ipynb 16
 def _get_training_data(cfg: SummarizationConfig, data_dir="data"):  # configuration for summarization  # data directory
     segmentation_df, summarization_df = preprocessing.preprocess_data(
         ds="train", data_path=data_dir, return_file=True, save_file=False
     )
     return summarization_df
 
-# %% ../nbs/30_summarization.ipynb 16
+# %% ../nbs/30_summarization.ipynb 19
 def _get_task_hf_objects(cfg: SummarizationConfig):
     hf_tok_kwargs = {}
     if cfg.hf_model_checkpoint == "sshleifer/tiny-mbart":
@@ -74,7 +83,7 @@ def _get_task_hf_objects(cfg: SummarizationConfig):
     )
     return hf_arch, hf_config, hf_tokenizer, hf_model
 
-# %% ../nbs/30_summarization.ipynb 19
+# %% ../nbs/30_summarization.ipynb 22
 def _get_dls(cfg: SummarizationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_model):
     if hf_arch in ["bart", "t5"]:
         cfg.text_gen_kwargs = {**hf_config.task_specific_params["summarization"], **{"max_length": 40, "min_length": 5}}
@@ -111,7 +120,32 @@ def _get_dls(cfg: SummarizationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_
     dls = dblock.dataloaders(df, bs=cfg.batch_size)
     return dls
 
-# %% ../nbs/30_summarization.ipynb 33
+# %% ../nbs/30_summarization.ipynb 27
+def _get_learner(cfg: SummarizationConfig, dls, hf_config, hf_model, hf_arch):
+    if cfg.random_seed:
+        set_seed(cfg.random_seed)
+
+    model = BaseModelWrapper(hf_model)
+    learn_cbs = [BaseModelCallback]
+
+    learn = Learner(
+        dls,
+        model,
+        opt_func=ranger,
+        loss_func=PreCalculatedCrossEntropyLoss(),
+        cbs=learn_cbs,
+        splitter=partial(blurr_seq2seq_splitter, arch=hf_arch),
+    )
+
+    learn.create_opt()
+    learn.freeze()
+
+    if cfg.use_fp16:
+        learn = learn.to_fp16()
+
+    return learn
+
+# %% ../nbs/30_summarization.ipynb 36
 class SummarizationModelTrainer(training.ModelTrainer):
     def __init__(
         self,
@@ -142,7 +176,7 @@ class SummarizationModelTrainer(training.ModelTrainer):
     def get_training_data(self):
         return _get_training_data(cfg=self.train_config, data_dir=self.data_path)
 
-# %% ../nbs/30_summarization.ipynb 35
+# %% ../nbs/30_summarization.ipynb 38
 @patch
 def train(self: SummarizationModelTrainer):
     # timing
