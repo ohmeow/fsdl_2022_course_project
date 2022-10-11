@@ -18,6 +18,7 @@ from blurr.utils import PreCalculatedCrossEntropyLoss
 from fastcore.all import *
 from fastai.data.block import DataBlock, ColReader, ItemGetter, ColSplitter, RandomSplitter
 from fastai.callback.wandb import WandbCallback
+from fastai.callback.schedule import *
 from fastai.imports import *
 from fastai.learner import *
 from fastai.losses import CrossEntropyLossFlat
@@ -48,7 +49,7 @@ class SummarizationConfig(training.TrainConfig):
 
     # learner
     input_sequence_size = 512
-    max_target_length = 5
+    max_target_length = 10
 
     batch_size = 8
     use_fp16 = True
@@ -61,7 +62,7 @@ class ContentSummarizationConfig(SummarizationConfig):
 
 # %% ../nbs/30_summarization.ipynb 13
 class HeadlineSummarizationConfig(SummarizationConfig):
-    max_target_length = 10
+    max_target_length = 5
 
 # %% ../nbs/30_summarization.ipynb 16
 def _get_training_data(cfg: SummarizationConfig, data_dir="data"):  # configuration for summarization  # data directory
@@ -88,7 +89,6 @@ def _get_dls(cfg: SummarizationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_
     if hf_arch in ["bart", "t5"]:
         cfg.text_gen_kwargs = {**hf_config.task_specific_params["summarization"], **{"max_length": 40, "min_length": 5}}
 
-    # not all "summarization" parameters are for the model.generate method ... remove them here
     # TODO: add text_gen_kwargs dynamically
     generate_func_args = list(inspect.signature(hf_model.generate).parameters.keys())
     for k in cfg.text_gen_kwargs.copy():
@@ -145,7 +145,22 @@ def _get_learner(cfg: SummarizationConfig, dls, hf_config, hf_model, hf_arch):
 
     return learn
 
-# %% ../nbs/30_summarization.ipynb 36
+# %% ../nbs/30_summarization.ipynb 37
+def _get_preds(model_or_learner, text_data: str, gen_algo, max_length):
+    if gen_algo == "greedy":
+        return learn.blurr_generate(text_data, key="summary_texts", max_length=max_length)
+    elif gen_algo == "topp":
+        return learn.blurr_generate(
+            text_data,
+            key="summary_texts",
+            max_length=max_length,
+            top_k=50,
+            top_p=0.95,
+        )
+    elif gen_algo == "topk":
+        return learn.blurr_generate(text_data, key="summary_texts", max_length=max_length, top_k=50)
+
+# %% ../nbs/30_summarization.ipynb 41
 class SummarizationModelTrainer(training.ModelTrainer):
     def __init__(
         self,
@@ -176,20 +191,54 @@ class SummarizationModelTrainer(training.ModelTrainer):
     def get_training_data(self):
         return _get_training_data(cfg=self.train_config, data_dir=self.data_path)
 
-# %% ../nbs/30_summarization.ipynb 38
+    def load_learner_or_model(self, model_learner_fpath: str | Path = None, device="cpu"):
+        if model_learner_fpath is None:
+            model_learner_fpath = f"{self.model_output_path}/{self.experiment_name}.pkl"
+
+        learn = load_learner(model_learner_fpath, cpu=device == "cpu")
+        return learn
+
+# %% ../nbs/30_summarization.ipynb 43
 @patch
-def train(self: SummarizationModelTrainer):
-    # timing
+def train(self: SummarizationModelTrainer, sweep_config: dict = None):
+    # setup
     start = time.time()
 
     yyyymmddHm = datetime.today().strftime("%Y%m%d_%H%m")
     seed = self.train_config.random_seed
 
+    # --- step 0: init the WANDB run if logging to wandb and update the training config from the sweep config if doing a sweep
+    is_sweep = True if sweep_config is not None else False
+
+    if self.use_wandb:
+        run = self.init_wandb_run(is_sweep)
+
+    # --- BEGIN TRAINING ---
+    if self.verbose:
+        print(f"Experiment: {self.experiment_name}")
+        print(f"Training config: f{self.get_train_config_props()}")
+
+    # --- step 1: get our TRAINING DATA ---
+    if self.verbose:
+        print("Preparing training data ...")
+
     summarization_df = self.get_training_data()
+
+    # --- step 2: get our HF OBJECTS ---
+    if self.verbose:
+        print("Building HF objects ...")
 
     hf_arch, hf_config, hf_tokenizer, hf_model = _get_task_hf_objects(self.train_config)
 
+    # --- step 3: DATALOADERS ---
+    if self.verbose:
+        print("Building DataLoaders ...")
+
     dls = _get_dls(self.train_config, summarization_df, hf_arch, hf_config, hf_tokenizer, hf_model)
+
+    # --- step 4: LEARNER ---
+    if self.verbose:
+        print("Building Learner ...")
 
     learn = _get_learner(cfg=self.train_config, dls=dls, hf_config=hf_config, hf_model=hf_model, hf_arch=hf_arch)
 
@@ -200,7 +249,9 @@ def train(self: SummarizationModelTrainer):
         }
     }
     fit_cbs = [Seq2SeqMetricsCallback(custom_metrics=seq2seq_metrics)]
-    if self.use_wandb:
+
+    # add any learner callbacks req. by the `ModelTrainer`
+    if self.use_wandb and not is_sweep:
         fit_cbs.append(WandbCallback(log_preds=False))
 
     if self.train_config.random_seed and not self.train_config.only_seed_splits:
@@ -213,15 +264,31 @@ def train(self: SummarizationModelTrainer):
     )
 
     end = time.time()
+    if self.verbose:
+        print(f"Time took for training is: {end - start}")
 
     learn.metrics = None
+
+    if self.verbose:
+        print("Saving model ...")
+
     learn.export(self.model_output_path / f"{self.experiment_name}.pkl")
 
     # clean up
     super(self.__class__, self).train()
+
+    if self.verbose:
+        print("End training")
 
     del learn, dls, hf_model, hf_tokenizer, hf_config
     torch.cuda.empty_cache()
     gc.collect()
 
     return None
+
+# %% ../nbs/30_summarization.ipynb 45
+@patch
+def get_preds(self: SummarizationModelTrainer, model_or_learner, data, **kwargs):
+    max_length = kwargs.get("max_target_length", 10)
+    gen_algo = kwargs.get("gen_algo", "greedy")
+    return _get_preds(model_or_learner, data, gen_algo, max_length)
