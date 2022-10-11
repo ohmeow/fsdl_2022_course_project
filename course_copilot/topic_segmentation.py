@@ -70,8 +70,8 @@ class TopicSegmentationConfig(training.TrainConfig):
     hf_model_kwargs = {}
 
     # datablock/dataloaders
-    use_next_pos_prob = 0.75
-    use_adjacent_neg_prob = 0.5
+    use_next_pos_prob = 0.775387819  # 0.75
+    use_adjacent_neg_prob = 0.680438664  # 0.5
     max_length = True
     lower_case = True
     truncation_strategy = True
@@ -83,11 +83,11 @@ class TopicSegmentationConfig(training.TrainConfig):
     # learner
     custom_model_kwargs = {"p": 0.1, "dropout_cls": nn.Dropout}
     include_gradient_checkpointing = False
-    one_cycle_moms_start = 0.8
-    one_cycle_moms_min = 0.7
-    one_cycle_moms_end = 0.8
-    adam_beta2 = 0.99
-    adam_eps = 1e-7
+    one_cycle_moms_start = 0.95
+    one_cycle_moms_min = 0.8
+    one_cycle_moms_end = 0.99
+    adam_beta2 = 0.996496257  # 0.99
+    adam_eps = 1.06e-07  # 1e-7
     weight_decay = 0.0
     max_grad_norm = None
     save_best_model = True
@@ -97,8 +97,8 @@ class TopicSegmentationConfig(training.TrainConfig):
     n_frozen_epochs = 0
     frozen_lr = 0
     n_unfrozen_epochs = 4
-    unfrozen_lr_min = 1e-5
-    unfrozen_lr_max = 1e-3
+    unfrozen_lr_min = 4.95567e-05  # 1e-5
+    unfrozen_lr_max = 0.00077501  # 1e-3
 
 # %% ../nbs/20_topic_segmentation.ipynb 14
 def _get_training_data(cfg: TopicSegmentationConfig, data_dir="data", on_the_fly=False, split_type="cross_validation"):
