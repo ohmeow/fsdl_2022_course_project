@@ -148,9 +148,9 @@ def _get_learner(cfg: SummarizationConfig, dls, hf_config, hf_model, hf_arch):
 # %% ../nbs/30_summarization.ipynb 37
 def _get_preds(model_or_learner, text_data: str, gen_algo, max_length):
     if gen_algo == "greedy":
-        return learn.blurr_generate(text_data, key="summary_texts", max_length=max_length)
+        return model_or_learner.blurr_generate(text_data, key="summary_texts", max_length=max_length)
     elif gen_algo == "topp":
-        return learn.blurr_generate(
+        return model_or_learner.blurr_generate(
             text_data,
             key="summary_texts",
             max_length=max_length,
@@ -158,7 +158,7 @@ def _get_preds(model_or_learner, text_data: str, gen_algo, max_length):
             top_p=0.95,
         )
     elif gen_algo == "topk":
-        return learn.blurr_generate(text_data, key="summary_texts", max_length=max_length, top_k=50)
+        return model_or_learner.blurr_generate(text_data, key="summary_texts", max_length=max_length, top_k=50)
 
 # %% ../nbs/30_summarization.ipynb 41
 class SummarizationModelTrainer(training.ModelTrainer):
