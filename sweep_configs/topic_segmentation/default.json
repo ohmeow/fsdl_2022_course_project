@@ -7,11 +7,11 @@
   },
   "parameters": {
     "use_next_pos_prob": {
-      "min": 0.25,
+      "min": 0.5,
       "max": 0.8
     },
     "use_adjacent_neg_prob": {
-      "min": 0.25,
+      "min": 0.5,
       "max": 0.8
     },
     "one_cycle_moms_start": {
@@ -73,6 +73,9 @@
         2.0,
         4.0
       ]
+    },
+    "n_unfrozen_epochs": {
+      "value": 1
     },
     "unfrozen_lr_min": {
       "max": 1e-4,
