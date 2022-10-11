@@ -2,9 +2,13 @@ datasets
 python-dotenv
 fastai
 fastcore
+ffmpeg
 matplotlib
 ohmeow-blurr
 optuna
+pytube
 segeval
 transformers[sentencepiece]
 wandb
+webvtt-py
+git+https://github.com/openai/whisper.git

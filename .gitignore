@@ -156,4 +156,6 @@ checklink/cookies.txt
 /logs
 /nbs/_exp/models
 
+transcription/
+
 *.pkl

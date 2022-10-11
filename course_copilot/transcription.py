@@ -3,7 +3,75 @@
 # %% ../nbs/10_transcription.ipynb 3
 from __future__ import annotations
 
+import csv, os
+from pathlib import Path
+
+import pandas as pd
+from pytube import YouTube
+import torch
+import webvtt
+import whisper
+from whisper.utils import write_vtt
+
 from . import utils
 
 # %% auto 0
-__all__ = []
+__all__ = ['fetch_youtube_audio', 'fetch_transcription', 'transcription_to_df']
+
+# %% ../nbs/10_transcription.ipynb 6
+def fetch_youtube_audio(yt_id: str, audio_files_fpath: Path = Path("./transcription/audio_files")) -> Path:
+    ext = "mp4"
+    order = "abr"
+
+    yt = YouTube(f"https://www.youtube.com/watch?v={yt_id}")
+    yt.check_availability()
+
+    filename = f"{yt.video_id}.{ext}"
+
+    audio_files_fpath.mkdir(exist_ok=True, parents=True)
+    download_path = audio_files_fpath / filename
+
+    audio_streams = yt.streams.filter(only_audio=True, file_extension=ext).order_by(order).desc()
+
+    # download it
+    audio_streams.first().download(filename=download_path, skip_existing=True)
+    return download_path
+
+# %% ../nbs/10_transcription.ipynb 9
+def fetch_transcription(
+    audio_fpath: Path,
+    transcription_fpath: Path = Path("./transcription/transcriptions"),
+    model_fpath: Path = Path("./transcription/models"),
+    model_checkptoint: str = "base",
+    device="cpu",
+):
+
+    transcription_fpath.mkdir(exist_ok=True, parents=True)
+    model_fpath.mkdir(exist_ok=True, parents=True)
+
+    torch_device = device if torch.cuda.is_available() and device != "cpu" else "cpu"
+    model = whisper.load_model(model_checkptoint, device=torch_device, download_root=model_fpath)
+
+    stem = audio_fpath.stem
+    ext = "vtt"
+
+    filename = f"{audio_fpath.stem}.{ext}"
+    vtt_path = transcription_fpath / filename
+
+    fields = ["start", "end", "text"]
+
+    result = model.transcribe(str(audio_fpath))
+    segments = result["segments"]
+
+    with open(vtt_path, "w", encoding="utf-8") as vtt:
+        write_vtt(segments, file=vtt)
+
+    return vtt_path
+
+# %% ../nbs/10_transcription.ipynb 12
+def transcription_to_df(transcription_fpath):
+    transcription_d = []
+    for caption in webvtt.read(transcription_fpath):
+        transcription_d.append({"timestamp": caption.start, "transcript": caption.text})
+
+    return pd.DataFrame(transcription_d)
