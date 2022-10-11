@@ -152,10 +152,10 @@ checklink/cookies.txt
 
 # app specific
 /data/clean/
-/models
 /logs
 /nbs/_exp/models
-
+/nbs/**/*.pkl
+/models/temp*
+/models/test*
+/models/*.pth
 transcription/
-
-*.pkl
