@@ -21,7 +21,7 @@ def convert_duration_to_seconds(
 ) -> int:  # The total number of seconds
 
     hrs, mins, secs = v.split(":")
-    return (60 * 60 * int(hrs)) + (60 * int(mins)) + int(secs)
+    return (60 * 60 * int(hrs)) + (60 * int(mins)) + float(secs)
 
 # %% ../nbs/01_preprocessing.ipynb 7
 def build_train_df(

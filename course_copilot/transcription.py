@@ -14,6 +14,7 @@ import whisper
 from whisper.utils import write_vtt
 
 from . import utils
+from .preprocessing import convert_duration_to_seconds
 
 # %% auto 0
 __all__ = ['fetch_youtube_audio', 'fetch_transcription', 'transcription_to_df']
@@ -74,4 +75,8 @@ def transcription_to_df(transcription_fpath):
     for caption in webvtt.read(transcription_fpath):
         transcription_d.append({"timestamp": caption.start, "transcript": caption.text})
 
-    return pd.DataFrame(transcription_d)
+    df = pd.DataFrame(transcription_d)
+    df["timestamp"] = df["timestamp"].astype(str)
+    df.insert(0, "elapsed_seconds", df["timestamp"].apply(convert_duration_to_seconds))
+
+    return df
