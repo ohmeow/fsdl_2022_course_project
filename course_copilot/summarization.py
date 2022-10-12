@@ -31,7 +31,8 @@ from transformers import PegasusForConditionalGeneration, BartForConditionalGene
 from . import utils, training, preprocessing
 
 # %% auto 0
-__all__ = ['SummarizationConfig', 'ContentSummarizationConfig', 'HeadlineSummarizationConfig', 'SummarizationModelTrainer']
+__all__ = ['headline_length', 'content_length', 'SummarizationConfig', 'ContentSummarizationConfig',
+           'HeadlineSummarizationConfig', 'SummarizationModelTrainer']
 
 # %% ../nbs/30_summarization.ipynb 6
 # silence all the HF warnings
@@ -56,13 +57,17 @@ class SummarizationConfig(training.TrainConfig):
     use_wandb = True
 
 # %% ../nbs/30_summarization.ipynb 11
+headline_length = 5
+content_length = 80
+
+
 class ContentSummarizationConfig(SummarizationConfig):
-    max_target_length = 80
+    max_target_length = content_length
     text_gen_kwargs = {"do_sample": True, "max_length": 100, "top_k": 50, "top_p": 0.95}
 
 # %% ../nbs/30_summarization.ipynb 13
 class HeadlineSummarizationConfig(SummarizationConfig):
-    max_target_length = 5
+    max_target_length = headline_length
 
 # %% ../nbs/30_summarization.ipynb 16
 def _get_training_data(cfg: SummarizationConfig, data_dir="data"):  # configuration for summarization  # data directory
@@ -148,7 +153,9 @@ def _get_learner(cfg: SummarizationConfig, dls, hf_config, hf_model, hf_arch):
 # %% ../nbs/30_summarization.ipynb 37
 def _get_preds(model_or_learner, text_data: str, gen_algo, max_length):
     if gen_algo == "greedy":
-        return model_or_learner.blurr_generate(text_data, key="summary_texts", max_length=max_length)
+        return model_or_learner.blurr_generate(text_data, key="summary_texts", max_length=max_length)[0][
+            "summary_texts"
+        ]
     elif gen_algo == "topp":
         return model_or_learner.blurr_generate(
             text_data,
@@ -156,9 +163,11 @@ def _get_preds(model_or_learner, text_data: str, gen_algo, max_length):
             max_length=max_length,
             top_k=50,
             top_p=0.95,
-        )
+        )[0]["summary_texts"]
     elif gen_algo == "topk":
-        return model_or_learner.blurr_generate(text_data, key="summary_texts", max_length=max_length, top_k=50)
+        return model_or_learner.blurr_generate(text_data, key="summary_texts", max_length=max_length, top_k=50)[0][
+            "summary_texts"
+        ]
 
 # %% ../nbs/30_summarization.ipynb 41
 class SummarizationModelTrainer(training.ModelTrainer):
@@ -288,7 +297,24 @@ def train(self: SummarizationModelTrainer, sweep_config: dict = None):
 
 # %% ../nbs/30_summarization.ipynb 45
 @patch
-def get_preds(self: SummarizationModelTrainer, model_or_learner, data, **kwargs):
+def get_preds(self: SummarizationModelTrainer, model_or_learner, df, **kwargs):
     max_length = kwargs.get("max_target_length", 10)
     gen_algo = kwargs.get("gen_algo", "greedy")
-    return _get_preds(model_or_learner, data, gen_algo, max_length)
+
+    # To convey it's a headline summarization model
+    data = df.copy()
+
+    if self.train_config.max_target_length == headline_length:
+        headings = []
+        for i in range(len(data)):
+            headings.append(_get_preds(model_or_learner, data.iloc[i]["transcript"], "greedy", headline_length))
+        data.loc[:, "topic_prediction"] = headings
+
+    # To convey it's a content summarization model
+    elif self.train_config.max_target_length == content_length:
+        content_preds = []
+        for i in range(len(data)):
+            content_preds.append(_get_preds(model_or_learner, data.iloc[i]["transcript"], "topp", content_length))
+        data.loc[:, "content_highlights"] = content_preds
+
+    return data
