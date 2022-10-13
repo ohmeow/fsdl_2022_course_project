@@ -19,7 +19,7 @@ def convert_duration_to_seconds(
     # A duration/iterval with the format of "hh:mm:ss"
     v: str,
 ) -> int:  # The total number of seconds
-
+    """Takes a string representation of a duration in the format of 'hh:mm:ss' and returns the number of seconds it represents"""
     hrs, mins, secs = v.split(":")
     return (60 * 60 * int(hrs)) + (60 * int(mins)) + float(secs)
 
@@ -29,7 +29,7 @@ def build_train_df(
     data_path: str
     | Path = "../data/",
 ) -> pd.DataFrame:  # A preprocessed DataFrame suitable for both segmentation and summarization training
-
+    """This method performs the core preprocessing required to turn our user collected raw data into something we can use for training both topic segmentation and summarization models"""
     sheets_d = pd.read_excel(
         Path(data_path) / "raw/fsdl_2022_project_transcripts.xlsx", sheet_name=["lesson_topics", "lesson_transcripts"]
     )
@@ -74,9 +74,9 @@ def build_train_df(
 
 # %% ../nbs/01_preprocessing.ipynb 8
 def build_segmentation_train_df(
-    # The preprocess training DataFrame
+    # The preprocessed training DataFrame from `build_train_df`
     train_df: pd.DataFrame,
-) -> pd.DataFrame:  # A preprocessed DataFrame for segmentation training
+) -> pd.DataFrame:  # A DataFrame suitable for topic segmentation training
     """
     For segmentation, we want to create a dataset of seq, seq +1 examples, but also include the ability to gather negative samples
     from either sequences in that topic or not
@@ -128,9 +128,9 @@ def build_segmentation_train_df(
 
 # %% ../nbs/01_preprocessing.ipynb 9
 def build_summarization_train_df(
-    # The preprocess training DataFrame
+    # The preprocessed training DataFrame from `build_train_df`
     train_df: pd.DataFrame,
-) -> pd.DataFrame:  # A preprocessed DataFrame for summarization training
+) -> pd.DataFrame:  # A DataFrame for suitable for summarization training
     """For summarization, we want to concatenate all the sequences in a topic and use the resulting string to predict the topic"""
     summarization_train_df = train_df.copy()
 
