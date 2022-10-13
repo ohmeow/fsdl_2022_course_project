@@ -4,3 +4,8 @@ website:
       - index.ipynb
       - 00_utils.ipynb
       - 01_preprocessing.ipynb
+      - 02_training.ipynb
+      - 10_transcription.ipynb
+      - 20_topic_segmentation.ipynb
+      - 30_summarization.ipynb
+      - 90_tasks.ipynb
