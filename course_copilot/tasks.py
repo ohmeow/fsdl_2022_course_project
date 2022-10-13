@@ -192,7 +192,7 @@ if __name__ == "__main__" and not IN_NOTEBOOK:
     task = args.subcommand
 
     # run the specific task task
-    if args.task == "train":
+    if task == "train":
         run_experiment(
             task,
             experiment_name=args.experiment,
@@ -205,7 +205,7 @@ if __name__ == "__main__" and not IN_NOTEBOOK:
             verbose=args.verbose,
             args=args,
         )
-    elif args.task == "tune":
+    elif task == "tune":
         trainer = prepare_tuning(
             task,
             experiment_name=args.experiment,
