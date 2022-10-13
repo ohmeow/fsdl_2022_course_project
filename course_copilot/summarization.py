@@ -57,7 +57,7 @@ class SummarizationConfig(training.TrainConfig):
     use_wandb = True
 
 # %% ../nbs/30_summarization.ipynb 11
-headline_length = 5
+headline_length = 10
 content_length = 80
 
 
