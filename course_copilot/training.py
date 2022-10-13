@@ -22,6 +22,8 @@ load_dotenv()
 
 
 class TrainConfig:
+    """This class defines a base class for each task to implement. Contains class properties relevant to the training process"""
+
     training_subset = 1.0
     val_pct = 0.25
     random_seed = 2022
@@ -29,7 +31,8 @@ class TrainConfig:
     preprocess_strategy = None
 
 # %% ../nbs/02_training.ipynb 8
-def get_train_config_props(cfg: TrainConfig):
+def get_train_config_props(cfg: TrainConfig) -> dict:
+    """Returns a dictionary of all the class properties in `cfg`"""
     log_params = {k: v if not callable(v) else v.__name__ for k, v in inspect.getmembers(cfg) if not k.startswith("__")}
     return log_params
 
@@ -37,16 +40,28 @@ def get_train_config_props(cfg: TrainConfig):
 class ModelTrainer(abc.ABC):
     def __init__(
         self,
-        task,
-        experiment_name,
+        # The ML task to run (e.g., topic_segmentation, summarization)
+        task: str,
+        # The name of your experiment (e.g., deberta_v3_large). This value is used in conjunction with `task` when
+        # logging information with W&B or else saving data releveant to training/evaluation runs
+        experiment_name: str,
+        # The `TrainConfig` for your task
         train_config: TrainConfig,
-        data_path="data",
-        model_output_path="models",
-        log_output_path="logs",
-        log_preds=False,
-        log_n_preds=None,
-        use_wandb=False,
-        verbose=False,
+        # Where the project's data is stored
+        data_path: str = "data",
+        # Where exported Learners and other models should stored
+        model_output_path: str = "models",
+        # Where any logged data should be stored
+        log_output_path: str = "logs",
+        # Whether predictions should be logged
+        log_preds: bool = False,
+        # The number of predictions that should be logged. It is left to each subclass to define what that means
+        log_n_preds: int = None,
+        # Whether or not to log experiments and sweeps to W&B
+        use_wandb: bool = False,
+        # Whether or not you want to have printed out everything during a training/evaulation run
+        verbose: bool = False,
+        # Any other kwargs you want to use in your ModelTrainer
         **kwargs,
     ):
         self.task = task
