@@ -170,6 +170,7 @@ def preprocess_data(
         return segmentation_train_df, summarization_train_df
 
 # %% ../nbs/01_preprocessing.ipynb 16
+# |eval: false
 if __name__ == "__main__" and utils.run_env == "script":
     # instantiate argparser
     parser = argparse.ArgumentParser()
