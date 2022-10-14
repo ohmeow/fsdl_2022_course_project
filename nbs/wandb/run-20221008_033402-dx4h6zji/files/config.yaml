@@ -1,0 +1,162 @@
+wandb_version: 1
+
+BaseModelCallback:
+  desc: null
+  value: true
+CastToTensor:
+  desc: null
+  value: true
+Learner:
+  desc: null
+  value:
+    _name: <fastai.learner.Learner object at 0x7f3f86739510>
+    default_cbs: true
+    loss_func:
+      _name: FlattenedLoss of CrossEntropyLoss()
+      axis: -1
+      flatten: true
+      floatify: false
+      is_2d: true
+    lr: 0.001
+    metrics: null
+    model_dir: models
+    moms:
+    - 0.95
+    - 0.85
+    - 0.95
+    opt_func: fastai.optimizer.ranger
+    path: .
+    splitter: functools.partial(<function blurr_seq2seq_splitter at 0x7f3dbc31bac0>,
+      arch='pegasus')
+    train_bn: true
+    wd: null
+    wd_bn_bias: false
+MixedPrecision:
+  desc: null
+  value: true
+ParamScheduler:
+  desc: null
+  value: true
+ProgressCallback:
+  desc: null
+  value: true
+Recorder:
+  desc: null
+  value:
+    add_time: true
+    train_metrics: false
+    valid_metrics: true
+Seq2SeqMetricsCallback:
+  desc: null
+  value:
+    calc_every: epoch
+    custom_metrics:
+      rouge:
+        compute_kwargs:
+          rouge_types:
+          - rouge1
+          - rouge2
+          - rougeL
+          - rougeLsum
+          use_stemmer: true
+        returns:
+        - rouge1
+        - rouge2
+        - rougeL
+        - rougeLsum
+    ignore_token_id: -100
+    kwargs: {}
+    text_gen_kwargs: {}
+TrainEvalCallback:
+  desc: null
+  value: true
+WandbCallback:
+  desc: null
+  value:
+    dataset_name: null
+    log: null
+    log_dataset: false
+    log_model: false
+    log_preds: false
+    log_preds_every_epoch: false
+    model_name: null
+    n_preds: 36
+    reorder: true
+    seed: 12345
+    valid_dl: null
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.13.3
+    framework: huggingface
+    huggingface_version: 4.22.1
+    is_jupyter_run: true
+    is_kaggle_kernel: false
+    python_version: 3.10.6
+    start_time: 1665200042.573616
+    t:
+      1:
+      - 1
+      - 4
+      - 5
+      - 11
+      - 35
+      - 49
+      - 51
+      - 53
+      - 55
+      - 71
+      2:
+      - 1
+      - 4
+      - 5
+      - 11
+      - 35
+      - 49
+      - 51
+      - 53
+      - 55
+      - 71
+      3:
+      - 23
+      4: 3.10.6
+      5: 0.13.3
+      6: 4.22.1
+      8:
+      - 1
+      - 5
+batch per epoch:
+  desc: null
+  value: 239
+batch size:
+  desc: null
+  value: 2
+dataset.tfms:
+  desc: null
+  value: '[Pipeline: ColReader -- {''cols'': ''transcript'', ''pref'': '''', ''suff'':
+    '''', ''label_delim'': None}, Pipeline: ColReader -- {''cols'': ''topic'', ''pref'':
+    '''', ''suff'': '''', ''label_delim'': None}]'
+device:
+  desc: null
+  value: cuda
+dls.after_batch:
+  desc: null
+  value: 'Pipeline: Seq2SeqBatchDecodeTransform'
+dls.after_item:
+  desc: null
+  value: 'Pipeline: ToTensor'
+dls.before_batch:
+  desc: null
+  value: 'Pipeline: Seq2SeqBatchTokenizeTransform'
+frozen:
+  desc: null
+  value: true
+frozen idx:
+  desc: null
+  value: 2
+model parameters:
+  desc: null
+  value: 369236992
+n_inp:
+  desc: null
+  value: 1
