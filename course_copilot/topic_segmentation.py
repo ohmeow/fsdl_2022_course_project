@@ -31,6 +31,9 @@ from transformers import (
     AutoModelForNextSentencePrediction,
     AutoModelForSequenceClassification,
     DebertaV2Model,
+    PretrainedConfig,
+    PreTrainedTokenizerBase,
+    PreTrainedModel,
     logging as hf_logging,
 )
 from transformers.models.deberta_v2.modeling_deberta_v2 import ContextPooler
@@ -59,7 +62,7 @@ load_dotenv()
 
 # %% ../nbs/20_topic_segmentation.ipynb 10
 class TopicSegmentationConfig(training.TrainConfig):
-    """A 'training.Config' object training and tuning our segmentation models. Uses fastai and huggingface defaults by default"""
+    """A `training.TrainConfig` object training and tuning our segmentation models. Uses fastai and huggingface defaults by default"""
 
     # huggingface objects
     hf_model_cls = AutoModelForSequenceClassification
@@ -101,7 +104,20 @@ class TopicSegmentationConfig(training.TrainConfig):
     unfrozen_lr_max = 0.00077501  # 1e-3
 
 # %% ../nbs/20_topic_segmentation.ipynb 14
-def _get_training_data(cfg: TopicSegmentationConfig, data_dir="data", on_the_fly=False, split_type="cross_validation"):
+def _get_training_data(
+    # A `TopicSegmentationConfig` class
+    cfg: TopicSegmentationConfig,
+    # Where the project's data is stored
+    data_dir: str = "data",
+    # Determines whether you want to use a pre-generated training file located in {data_dir}/clean or generate it
+    # on the fly when this method is called
+    on_the_fly: bool = False,
+    # How you want to generate your training and evaulation data (e.g., cross_validation, folds)
+    split_type: str = "cross_validation"
+    # Returns the training DataFrame, list of training indicies, list of validation indicies, and the raw data
+) -> tuple[pd.DataFrame, list[int], list[int], pd.DataFrame]:
+    """This method returns a DataFrame ready for training"""
+
     if on_the_fly:
         raw_train_df, _ = preprocessing.preprocess_data(
             ds="train", data_path=data_dir, return_file=True, save_file=False
@@ -136,7 +152,12 @@ def _get_training_data(cfg: TopicSegmentationConfig, data_dir="data", on_the_fly
         raise NotImplementedError()
 
 # %% ../nbs/20_topic_segmentation.ipynb 18
-def _get_task_hf_objects(cfg: TopicSegmentationConfig):
+def _get_task_hf_objects(
+    # A `TopicSegmentationConfig` class
+    cfg: TopicSegmentationConfig,
+    # Returns the name of the transformer's architecture and the created config, tokenizer, and model
+) -> tuple[str, PretrainedConfig, PreTrainedTokenizerBase, PreTrainedModel,]:
+    """This method is used the easily get all the Hugging Face objects needed using the `TopicSegmentationConfig`"""
     # if 'only_seed_splits' = True, then we only care about reproducibility insofar as the training and
     # validation sets go
     if cfg.random_seed and not cfg.only_seed_splits:
@@ -166,7 +187,17 @@ def _get_task_hf_objects(cfg: TopicSegmentationConfig):
     return hf_arch, hf_config, hf_tokenizer, hf_model
 
 # %% ../nbs/20_topic_segmentation.ipynb 21
-def _build_pos_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_token="[SEP]"):
+def _build_pos_inputs(
+    example,
+    # A `TopicSegmentationConfig` class
+    cfg: TopicSegmentationConfig,
+    # The sep token for the Hugging Face tokenizer you are using
+    hf_tokenizer_sep_token: str = "[SEP]"
+    # Returns a tuple of two strings. The first being the text sequence + the following sequence, the second being the
+    # text sequence + a sequence in the same topic.
+) -> tuple(str, str):
+    """This method returns two options for building the 'positive' example, that is, examples where this row's sequence is joined
+    either to the next sequence or another sequence in the topic it is in"""
     seq_text = example["seq"].strip().lower() if cfg.lower_case else example["seq"].strip()
     next_seq_text = example["next_seq"].strip().lower() if cfg.lower_case else example["next_seq"].strip()
 
@@ -198,7 +229,19 @@ def _build_pos_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_to
     return inp
 
 # %% ../nbs/20_topic_segmentation.ipynb 22
-def _build_neg_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_token="[SEP]", df=None):
+def _build_neg_inputs(
+    example,
+    # A `TopicSegmentationConfig` class
+    cfg: TopicSegmentationConfig,
+    # The sep token for the Hugging Face tokenizer you are using
+    hf_tokenizer_sep_token="[SEP]",
+    df=None
+    # Returns a tuple of two strings. The first being the text sequence + the following sequence, the second being the
+    # text sequence + a sequence in the same topic.
+) -> tuple(str, str):
+    """This method returns two options for building the 'negative' example, that is, examples where this row's sequence is joined
+    either to a sequence in a different topic or another sequence in a different course"""
+
     seq_text = example["seq"].strip()
 
     # if at the last sequence for a topic, set the negative pair = seq + first sequence in next topic,
@@ -239,11 +282,21 @@ def _build_neg_inputs(example, cfg: TopicSegmentationConfig, hf_tokenizer_sep_to
 
 # %% ../nbs/20_topic_segmentation.ipynb 23
 def _build_targets(example):
+    """Builds dummy targets for our `DataLoaders`"""
     return 0
 
 # %% ../nbs/20_topic_segmentation.ipynb 24
 class SiameseBatchTokenizeTransform(BatchTokenizeTransform):
-    def __init__(self, use_next_pos_prob=0.75, use_adjacent_neg_prob=0.5, **kwargs):
+    def __init__(
+        self,
+        # The probability we'll use the positive examples next sequence vs another sequence in the same topic
+        use_next_pos_prob: float = 0.75,
+        # The probability we'll use the negative example's sequence in another topic vs. sequence in a completely different course
+        use_adjacent_neg_prob: float = 0.5,
+        # Any kwargs to be passed to `BatchTokenizerTransform`
+        **kwargs,
+    ):
+        """This method samples from the positive and negative examples to form the inputs to our model"""
         super().__init__(**kwargs)
         self.use_next_pos_prob = use_next_pos_prob
         self.use_adjacent_neg_prob = use_adjacent_neg_prob
@@ -270,7 +323,23 @@ class SiameseBatchTokenizeTransform(BatchTokenizeTransform):
         return [(inps1[0], inps2[0], inps1[-1]) for inps1, inps2 in zip(updated_samples1, updated_samples2)]
 
 # %% ../nbs/20_topic_segmentation.ipynb 25
-def _get_dls(cfg: TopicSegmentationConfig, df, hf_arch, hf_config, hf_tokenizer, hf_model, val_idxs_or_fold):
+def _get_dls(
+    # A `TopicSegmentationConfig` class
+    cfg: TopicSegmentationConfig,
+    # The training data
+    df: pd.DataFrame,
+    # The name of our transformer's architecture
+    hf_arch: str,
+    # The configuration object for our transformer model
+    hf_config: PretrainedConfig,
+    # The tokenizer objective for our transformer model
+    hf_tokenizer: PreTrainedTokenizerBase,
+    # The transformer model
+    hf_model: PreTrainedModel,
+    # Either a list of indicies used to identify rows belonging to your validation set or the fold to use for it
+    val_idxs_or_fold: list[int] | int,
+):
+    """This method will return our training and validation `DataLoaders`"""
     # define validation set
     if isinstance(val_idxs_or_fold, int):
         df["is_valid"] = df["k_fold"] == val_idxs_or_fold
@@ -314,7 +383,7 @@ def _get_dls(cfg: TopicSegmentationConfig, df, hf_arch, hf_config, hf_tokenizer,
     bsz = cfg.batch_size if cfg.accum is None else cfg.batch_size // cfg.accum
     return dblock.dataloaders(df, bs=bsz, val_bs=bsz * 2)
 
-# %% ../nbs/20_topic_segmentation.ipynb 29
+# %% ../nbs/20_topic_segmentation.ipynb 30
 def blurr_splitter_with_head(m: Module):
     """Simply adds an additional layer group to the classification head"""
     base_param_groups = blurr_splitter(m)
@@ -335,7 +404,7 @@ def blurr_splitter_on_backbone(m: Module):
 
     return groups.map(params).filter(lambda el: len(el) > 0)
 
-# %% ../nbs/20_topic_segmentation.ipynb 30
+# %% ../nbs/20_topic_segmentation.ipynb 31
 # TODO: Review PyTorch docs (https://pytorch.org/docs/stable/generated/torch.nn.MarginRankingLoss.html); consider changing
 def MarginRankingLoss(pos_neg_scores, targs):
     margin = 1
@@ -345,7 +414,7 @@ def MarginRankingLoss(pos_neg_scores, targs):
     scores = scores.clamp(min=0)
     return scores.mean()
 
-# %% ../nbs/20_topic_segmentation.ipynb 31
+# %% ../nbs/20_topic_segmentation.ipynb 32
 def topic_seg_f1_score(inps, targs):
     labels = []
     all_pos_scores, all_neg_scores = inps[0], inps[1]
@@ -361,8 +430,13 @@ def topic_seg_f1_score(inps, targs):
 
 _topic_seg_f1_score = AvgMetric(topic_seg_f1_score)
 
-# %% ../nbs/20_topic_segmentation.ipynb 32
+# %% ../nbs/20_topic_segmentation.ipynb 33
 class TopicSegmentationModelWrapper(BaseModelWrapper):
+    """
+    This custom `BaseModelWrapper` allows to score our positive examples against our negative examples. A good model will
+    be one where the former are assigned a value greater than the later.
+    """
+
     def __init__(
         self,
         hf_config,
@@ -396,8 +470,20 @@ class TopicSegmentationModelWrapper(BaseModelWrapper):
 
         return pos_scores[:, 0], neg_scores[:, 0]
 
-# %% ../nbs/20_topic_segmentation.ipynb 34
-def _get_learner(cfg: TopicSegmentationConfig, dls, hf_config, hf_model, learner_path="."):
+# %% ../nbs/20_topic_segmentation.ipynb 35
+def _get_learner(
+    # A `TopicSegmentationConfig` class
+    cfg: TopicSegmentationConfig,
+    # Our `DataLoaders`
+    dls,
+    # The transformer model's configuration object
+    hf_config: PretrainedConfig,
+    # The transfromer model
+    hf_model: PreTrainedModel,
+    # The location to store our saved models and exported `Learner`
+    learner_path: str | Path = "."
+    # Returns a `Learner` for training or inference
+) -> Learner:
 
     if cfg.random_seed and not cfg.only_seed_splits:
         set_seed(cfg.random_seed)
@@ -430,7 +516,7 @@ def _get_learner(cfg: TopicSegmentationConfig, dls, hf_config, hf_model, learner
 
     return learn
 
-# %% ../nbs/20_topic_segmentation.ipynb 45
+# %% ../nbs/20_topic_segmentation.ipynb 46
 def depth_score_cal(scores):
     output_scores = []
     for i in range(len(scores)):
@@ -466,7 +552,7 @@ def depth_score_cal(scores):
 
     return output_scores
 
-# %% ../nbs/20_topic_segmentation.ipynb 46
+# %% ../nbs/20_topic_segmentation.ipynb 47
 def _get_validation_preds(
     hf_model, hf_tokenizer, val_df, val_course_titles, batch_size=16, threshold_std_coeff=1.0, verbose=False
 ):
@@ -571,7 +657,7 @@ def _get_validation_preds(
 
     return pd.concat(val_results)
 
-# %% ../nbs/20_topic_segmentation.ipynb 49
+# %% ../nbs/20_topic_segmentation.ipynb 50
 def _get_preds(inf_learner, data, threshold_std_coeff=1.5):
     batch_tok_transform = first_blurr_tfm(inf_learner.dls)
     batch_size = inf_learner.dls.bs
@@ -647,7 +733,7 @@ def _get_preds(inf_learner, data, threshold_std_coeff=1.5):
     # return the updated inference dataset and the topic start indices
     return data, seg_idxs
 
-# %% ../nbs/20_topic_segmentation.ipynb 54
+# %% ../nbs/20_topic_segmentation.ipynb 55
 class TopicSegmentationModelTrainer(training.ModelTrainer):
     def __init__(
         self,
@@ -696,7 +782,7 @@ class TopicSegmentationModelTrainer(training.ModelTrainer):
 
         return learn
 
-# %% ../nbs/20_topic_segmentation.ipynb 56
+# %% ../nbs/20_topic_segmentation.ipynb 57
 @patch
 def train(self: TopicSegmentationModelTrainer, sweep_config: dict = None):
     # setup
@@ -858,7 +944,7 @@ def train(self: TopicSegmentationModelTrainer, sweep_config: dict = None):
     else:
         return
 
-# %% ../nbs/20_topic_segmentation.ipynb 60
+# %% ../nbs/20_topic_segmentation.ipynb 61
 @patch
 def get_preds(self: TopicSegmentationModelTrainer, model_or_learner, data, **kwargs):
     threshold_std_coeff = kwargs.get("threshold_std_coeff", 1.0)
@@ -866,7 +952,7 @@ def get_preds(self: TopicSegmentationModelTrainer, model_or_learner, data, **kwa
     preds_df, pred_seg_idxs = _get_preds(model_or_learner, data, threshold_std_coeff=threshold_std_coeff)
     return preds_df, pred_seg_idxs
 
-# %% ../nbs/20_topic_segmentation.ipynb 64
+# %% ../nbs/20_topic_segmentation.ipynb 65
 default_sweep_config = {
     "method": "random",  # grid | random | bayes
     "name": "topic_segmentation_sweep",
@@ -877,5 +963,5 @@ default_sweep_config = {
     },
 }
 
-# %% ../nbs/20_topic_segmentation.ipynb 68
+# %% ../nbs/20_topic_segmentation.ipynb 69
 # TODO
