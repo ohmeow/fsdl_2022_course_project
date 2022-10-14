@@ -439,11 +439,16 @@ class TopicSegmentationModelWrapper(BaseModelWrapper):
 
     def __init__(
         self,
-        hf_config,
-        hf_model,
-        dropout_cls=nn.Dropout,
-        p=0.1,
-        hf_model_kwargs={},
+        # Our transformer's configuration object
+        hf_config: PretrainedConfig,
+        # Our transformer model
+        hf_model: PreTrainedModel,
+        # The class we want to use for applying dropout
+        dropout_cls: type = nn.Dropout,
+        # The amount of dropout to apply prior to our classification head
+        p: float = 0.1,
+        # Any kwargs we want to be passed when the model is used for prediction
+        hf_model_kwargs: dict = {},
     ):
         super().__init__(hf_model=hf_model, output_hidden_states=True, hf_model_kwargs=hf_model_kwargs)
         store_attr()
@@ -517,7 +522,10 @@ def _get_learner(
     return learn
 
 # %% ../nbs/20_topic_segmentation.ipynb 46
-def depth_score_cal(scores):
+def depth_score_cal(
+    # The original scores assigned to each sequence in a course's transcript
+    scores,
+):
     output_scores = []
     for i in range(len(scores)):
         lflag = scores[i]
@@ -554,8 +562,25 @@ def depth_score_cal(scores):
 
 # %% ../nbs/20_topic_segmentation.ipynb 47
 def _get_validation_preds(
-    hf_model, hf_tokenizer, val_df, val_course_titles, batch_size=16, threshold_std_coeff=1.0, verbose=False
-):
+    # Our transformer model
+    hf_model: PreTrainedModel,
+    # Our tokenzier
+    hf_tokenizer: PreTrainedTokenizerBase,
+    # A DataFrame representing one or more courses to evaluate
+    val_df: pd.DataFrame,
+    # The names of the courses in `val_df` we want to use in our evaluation
+    val_course_titles: list[str],
+    # The number of sequences we want to run through our model each time.
+    batch_size: int = 16,
+    # The coefficient we want to use to determine whether the sequence represents a new topic (lower values will produce
+    # more fine-grained topic boundaries while a larger value will produce less broarder ones)
+    threshold_std_coeff: float = 1.0,
+    # Controls the amount of information displayed to the user
+    verbose: bool = False
+    # A DataFrame with our predicted topic boundaries and depth scores for each sequence
+) -> pd.DataFrame:
+    """This method is used to calculate several metrics based on depth scores, including F1"""
+
     hf_model.eval()
 
     if verbose:
@@ -658,7 +683,14 @@ def _get_validation_preds(
     return pd.concat(val_results)
 
 # %% ../nbs/20_topic_segmentation.ipynb 50
-def _get_preds(inf_learner, data, threshold_std_coeff=1.5):
+def _get_preds(
+    # The `Learner` we want to use for inference
+    inf_learner: Learner,
+    # A DataFrame with at minimum a 'transcript' column to get predictions on
+    data: pd.DataFrame,
+    # The coeficient to apply towards determining topic boundaries
+    threshold_std_coeff: float = 1.5,
+):
     batch_tok_transform = first_blurr_tfm(inf_learner.dls)
     batch_size = inf_learner.dls.bs
 
@@ -737,15 +769,26 @@ def _get_preds(inf_learner, data, threshold_std_coeff=1.5):
 class TopicSegmentationModelTrainer(training.ModelTrainer):
     def __init__(
         self,
-        experiment_name,
+        # The name of your experiment (e.g., deberta_v3_large). This value is used in conjunction with `task` when
+        # logging information with W&B or else saving data releveant to training/evaluation runs
+        experiment_name: str,
+        # The `TopicSegmentationConfig`
         train_config: TopicSegmentationConfig,
-        data_path="data",
-        model_output_path="models",
-        log_output_path="logs",
-        log_preds=False,
-        log_n_preds=None,
-        use_wandb=False,
-        verbose=False,
+        # Where the project's data is stored
+        data_path: str = "data",
+        # Where exported Learners and other models should stored
+        model_output_path: str = "models",
+        # Where any logged data should be stored
+        log_output_path: str = "logs",
+        # Whether predictions should be logged
+        log_preds: bool = False,
+        # The number of course predictions that should be logged
+        log_n_preds: int = None,
+        # Whether or not to log experiments and sweeps to W&B
+        use_wandb: bool = False,
+        # Whether or not you want to have printed out everything during a training/evaulation run
+        verbose: bool = False,
+        # Any other kwargs you want to use in your ModelTrainer
         **kwargs,
     ):
         super().__init__(
@@ -762,12 +805,26 @@ class TopicSegmentationModelTrainer(training.ModelTrainer):
             **kwargs,
         )
 
-    def get_training_data(self, on_the_fly=False, split_type="cross_validation"):
+    def get_training_data(
+        self,
+        # Whether we want to us a prepared dataset for training or generate it on the fly
+        on_the_fly: bool = False,
+        # How we want to build our validation set (e.g., using a basing train/eval split for folds)
+        split_type: str = "cross_validation",
+    ):
         return _get_training_data(
             cfg=self.train_config, data_dir=self.data_path, on_the_fly=on_the_fly, split_type=split_type
         )
 
-    def load_learner_or_model(self, model_learner_fpath: str | Path = None, device="cpu", mode="eval"):
+    def load_learner_or_model(
+        self,
+        # The location of our exported `Learner`
+        model_learner_fpath: str | Path = None,
+        # The device we want to run our predictions on
+        device="cpu",
+        # The mode our model should run (e.g., should be 'eval' for inference)
+        mode="eval",
+    ) -> Learner:
         if model_learner_fpath is None:
             model_learner_fpath = f"{self.model_output_path}/{self.experiment_name}.pkl"
 
@@ -784,7 +841,11 @@ class TopicSegmentationModelTrainer(training.ModelTrainer):
 
 # %% ../nbs/20_topic_segmentation.ipynb 57
 @patch
-def train(self: TopicSegmentationModelTrainer, sweep_config: dict = None):
+def train(
+    self: TopicSegmentationModelTrainer,
+    # A dictionary providing the parameters and ranges for our sweep
+    sweep_config: dict = None,
+):
     # setup
     start = time.time()
     yyyymmddHm = datetime.today().strftime("%Y%m%d_%H%m")
@@ -946,7 +1007,16 @@ def train(self: TopicSegmentationModelTrainer, sweep_config: dict = None):
 
 # %% ../nbs/20_topic_segmentation.ipynb 61
 @patch
-def get_preds(self: TopicSegmentationModelTrainer, model_or_learner, data, **kwargs):
+def get_preds(
+    self: TopicSegmentationModelTrainer,
+    # The `Learner` we want to use for inference
+    model_or_learner,
+    # The data we want to get predictions on (must include a column named 'transcript' at minimum)
+    data: pd.DataFrame,
+    # Any kwargs to be used for inferece (for example, 'threshold_std_coeff')
+    **kwargs
+    # Returns `data` (including topic segmentation boundaris and scores) and indicies of predicted topic starts
+) -> tuple[pd.DataFrame, list[int]]:
     threshold_std_coeff = kwargs.get("threshold_std_coeff", 1.0)
 
     preds_df, pred_seg_idxs = _get_preds(model_or_learner, data, threshold_std_coeff=threshold_std_coeff)
