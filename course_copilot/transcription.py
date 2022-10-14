@@ -20,7 +20,14 @@ from .preprocessing import convert_duration_to_seconds
 __all__ = ['fetch_youtube_audio', 'fetch_transcription', 'transcription_to_df']
 
 # %% ../nbs/10_transcription.ipynb 7
-def fetch_youtube_audio(yt_id: str, audio_files_fpath: Path = Path("./transcription/audio_files")) -> Path:
+def fetch_youtube_audio(
+    # The ID for the YouTube video you want transcribed
+    yt_id: str,
+    # The location to store the audio file
+    audio_files_fpath: Path = Path("./transcription/audio_files")
+    # Returns the path of the created audio file
+) -> Path:
+    """This method isolates the audio from a YouTube video and saves it to the filesystem"""
     ext = "mp4"
     order = "abr"
 
@@ -40,12 +47,18 @@ def fetch_youtube_audio(yt_id: str, audio_files_fpath: Path = Path("./transcript
 
 # %% ../nbs/10_transcription.ipynb 10
 def fetch_transcription(
+    # The path to the audio file we want to predict transcriptions from
     audio_fpath: Path,
+    # The path to store predicted transcriptions
     transcription_fpath: Path = Path("./transcription/transcriptions"),
+    # The path where our Whisper models are stored
     model_fpath: Path = Path("./transcription/models"),
+    # The model checkpoint we want to use
     model_checkptoint: str = "base",
+    # What device to run transcription on. Note: A GPU will be much faster
     device="cpu",
-):
+    # The path to our transcribed file (saved in VTT format)
+) -> Path:
 
     transcription_fpath.mkdir(exist_ok=True, parents=True)
     model_fpath.mkdir(exist_ok=True, parents=True)
@@ -70,7 +83,11 @@ def fetch_transcription(
     return vtt_path
 
 # %% ../nbs/10_transcription.ipynb 13
-def transcription_to_df(transcription_fpath):
+def transcription_to_df(
+    # The path to our saved VTT transcription
+    transcription_fpath,
+    # Returns a DataFrame with our transcription including timestamp and elapsed seconds
+) -> pd.DataFrame:
     transcription_d = []
     for caption in webvtt.read(transcription_fpath):
         transcription_d.append({"timestamp": caption.start, "transcript": caption.text})
