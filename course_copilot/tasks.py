@@ -30,7 +30,12 @@ except:
     IN_NOTEBOOK = False
 
 # %% ../nbs/90_tasks.ipynb 7
-def build_train_config(train_config_cls, args):
+def build_train_config(
+    # Our task's `TrainConfig`
+    train_config_cls: type,
+    # The arguments (name and values) we want to update our `TrainConfig` with
+    args,
+) -> training.TrainConfig:
     train_config = train_config_cls()
 
     for arg in vars(args):
@@ -41,15 +46,26 @@ def build_train_config(train_config_cls, args):
 
 # %% ../nbs/90_tasks.ipynb 8
 def run_experiment(
-    task,
+    # The ML task to run (e.g., topic_segmentation, summarization)
+    task: str,
+    # The name of your experiment (e.g., deberta_v3_large). This value is used in conjunction with `task` when
+    # logging information with W&B or else saving data releveant to training/evaluation runs
     experiment_name: str,
-    data_path: str,
-    model_output_path: str,
-    log_output_path: str,
-    log_preds: bool,
-    log_n_preds: int,
-    use_wandb: bool,
-    verbose: bool,
+    # Where the project's data is stored
+    data_path: str = "data",
+    # Where exported Learners and other models should stored
+    model_output_path: str = "models",
+    # Where any logged data should be stored
+    log_output_path: str = "logs",
+    # Whether predictions should be logged
+    log_preds: bool = False,
+    # The number of predictions that should be logged. It is left to each subclass to define what that means
+    log_n_preds: int = None,
+    # Whether or not to log experiments and sweeps to W&B
+    use_wandb: bool = False,
+    # Whether or not you want to have printed out everything during a training/evaulation run
+    verbose: bool = False,
+    # Any args/values we want to use to update our `TrainConfig` with
     args=None,
 ):
     if task == "topic_segmentation":
@@ -101,15 +117,26 @@ def run_experiment(
 
 # %% ../nbs/90_tasks.ipynb 9
 def prepare_tuning(
-    task,
+    # The ML task to run (e.g., topic_segmentation, summarization)
+    task: str,
+    # The name of your experiment (e.g., deberta_v3_large). This value is used in conjunction with `task` when
+    # logging information with W&B or else saving data releveant to training/evaluation runs
     experiment_name: str,
+    # Where the project's data is stored
     data_path: str,
+    # Where exported Learners and other models should stored
     model_output_path: str,
+    # Where any logged data should be stored
     log_output_path: str,
+    # Whether predictions should be logged
     log_preds: bool,
+    # The number of predictions that should be logged. It is left to each subclass to define what that means
     log_n_preds: int,
+    # Whether or not to log experiments and sweeps to W&B
     use_wandb: bool,
+    # Whether or not you want to have printed out everything during a training/evaulation run
     verbose: bool,
+    # Any args/values we want to use to update our `TrainConfig` with
     args=None,
 ):
     if task == "topic_segmentation":
