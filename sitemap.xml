@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/index.html</loc>
+    <lastmod>2022-10-14T13:36:33.365Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/training.html</loc>
+    <lastmod>2022-10-14T13:36:35.105Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/utils.html</loc>
+    <lastmod>2022-10-14T13:36:35.465Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/transcription.html</loc>
+    <lastmod>2022-10-14T13:36:35.797Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/tasks.html</loc>
+    <lastmod>2022-10-14T13:36:36.129Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/summarization.html</loc>
+    <lastmod>2022-10-14T13:36:36.509Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/preprocessing.html</loc>
+    <lastmod>2022-10-14T13:36:36.845Z</lastmod>
+  </url>
+  <url>
+    <loc>https://ohmeow.github.io/course_copilot/topic_segmentation.html</loc>
+    <lastmod>2022-10-14T13:36:37.497Z</lastmod>
+  </url>
+</urlset>

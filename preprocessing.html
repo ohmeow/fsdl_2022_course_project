@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>course_copilot - preprocessing</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="course_copilot - preprocessing">
+<meta property="og:description" content="source">
+<meta property="og:site-name" content="course_copilot">
+<meta name="twitter:title" content="course_copilot - preprocessing">
+<meta name="twitter:description" content="source">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">course_copilot</span>
+    </a>
+  </div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+    <div class="container-fluid d-flex justify-content-between">
+      <h1 class="quarto-secondary-nav-title">preprocessing</h1>
+      <button type="button" class="quarto-btn-toggle btn" aria-label="Show secondary navigation">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">fsdl_2022_course_project</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">utils</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./preprocessing.html" class="sidebar-item-text sidebar-link active">preprocessing</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./training.html" class="sidebar-item-text sidebar-link">training</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./transcription.html" class="sidebar-item-text sidebar-link">transcription</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./topic_segmentation.html" class="sidebar-item-text sidebar-link">topic_segmentation</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./summarization.html" class="sidebar-item-text sidebar-link">summarization</a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tasks.html" class="sidebar-item-text sidebar-link">tasks</a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#utility-methods" id="toc-utility-methods" class="nav-link active" data-scroll-target="#utility-methods">Utility methods</a>
+  <ul class="collapse">
+  <li><a href="#convert_duration_to_seconds" id="toc-convert_duration_to_seconds" class="nav-link" data-scroll-target="#convert_duration_to_seconds">convert_duration_to_seconds</a></li>
+  <li><a href="#build_train_df" id="toc-build_train_df" class="nav-link" data-scroll-target="#build_train_df">build_train_df</a></li>
+  <li><a href="#build_segmentation_train_df" id="toc-build_segmentation_train_df" class="nav-link" data-scroll-target="#build_segmentation_train_df">build_segmentation_train_df</a></li>
+  <li><a href="#build_summarization_train_df" id="toc-build_summarization_train_df" class="nav-link" data-scroll-target="#build_summarization_train_df">build_summarization_train_df</a></li>
+  </ul></li>
+  <li><a href="#preprocessing" id="toc-preprocessing" class="nav-link" data-scroll-target="#preprocessing">Preprocessing</a>
+  <ul class="collapse">
+  <li><a href="#preprocess_data" id="toc-preprocess_data" class="nav-link" data-scroll-target="#preprocess_data">preprocess_data</a></li>
+  </ul></li>
+  </ul>
+<div class="toc-actions"><div><i class="bi bi-github"></i></div><div class="action-links"><p><a href="https://github.com/ohmeow/fsdl_2022_course_project/issues/new" class="toc-action">Report an issue</a></p></div></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title d-none d-lg-block">preprocessing</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    
+  </div>
+  
+
+</header>
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="utility-methods" class="level2">
+<h2 class="anchored" data-anchor-id="utility-methods">Utility methods</h2>
+<hr>
+<p><a href="https://github.com/ohmeow/fsdl_2022_course_project/blob/master/course_copilot/preprocessing.py#L18" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="convert_duration_to_seconds" class="level3">
+<h3 class="anchored" data-anchor-id="convert_duration_to_seconds">convert_duration_to_seconds</h3>
+<blockquote class="blockquote">
+<pre><code> convert_duration_to_seconds (v:str)</code></pre>
+</blockquote>
+<p>Takes a string representation of a duration in the format of ‘hh:mm:ss’ and returns the number of seconds it represents</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>v</td>
+<td>str</td>
+<td>A duration/iterval with the format of “hh:mm:ss”</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>int</strong></td>
+<td><strong>The total number of seconds</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/ohmeow/fsdl_2022_course_project/blob/master/course_copilot/preprocessing.py#L27" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="build_train_df" class="level3">
+<h3 class="anchored" data-anchor-id="build_train_df">build_train_df</h3>
+<blockquote class="blockquote">
+<pre><code> build_train_df (data_path:str|pathlib.Path='../data/')</code></pre>
+</blockquote>
+<p>This method performs the core preprocessing required to turn our user collected raw data into something we can use for training both topic segmentation and summarization models</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>data_path</td>
+<td>str | Path</td>
+<td>../data/</td>
+<td>The path to the data dir</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>pd.DataFrame</strong></td>
+<td></td>
+<td><strong>A preprocessed DataFrame suitable for both segmentation and summarization training</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/ohmeow/fsdl_2022_course_project/blob/master/course_copilot/preprocessing.py#L76" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="build_segmentation_train_df" class="level3">
+<h3 class="anchored" data-anchor-id="build_segmentation_train_df">build_segmentation_train_df</h3>
+<blockquote class="blockquote">
+<pre><code> build_segmentation_train_df (train_df:pandas.core.frame.DataFrame)</code></pre>
+</blockquote>
+<p>For segmentation, we want to create a dataset of seq, seq +1 examples, but also include the ability to gather negative samples from either sequences in that topic or not</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>train_df</td>
+<td>pd.DataFrame</td>
+<td>The preprocessed training DataFrame from <a href="https://ohmeow.github.io/course_copilot/preprocessing.html#build_train_df"><code>build_train_df</code></a></td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>pd.DataFrame</strong></td>
+<td><strong>A DataFrame suitable for topic segmentation training</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/ohmeow/fsdl_2022_course_project/blob/master/course_copilot/preprocessing.py#L130" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="build_summarization_train_df" class="level3">
+<h3 class="anchored" data-anchor-id="build_summarization_train_df">build_summarization_train_df</h3>
+<blockquote class="blockquote">
+<pre><code> build_summarization_train_df (train_df:pandas.core.frame.DataFrame)</code></pre>
+</blockquote>
+<p>For summarization, we want to concatenate all the sequences in a topic and use the resulting string to predict the topic</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>train_df</td>
+<td>pd.DataFrame</td>
+<td>The preprocessed training DataFrame from <a href="https://ohmeow.github.io/course_copilot/preprocessing.html#build_train_df"><code>build_train_df</code></a></td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>pd.DataFrame</strong></td>
+<td><strong>A DataFrame for suitable for summarization training</strong></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="preprocessing" class="level2">
+<h2 class="anchored" data-anchor-id="preprocessing">Preprocessing</h2>
+<hr>
+<p><a href="https://github.com/ohmeow/fsdl_2022_course_project/blob/master/course_copilot/preprocessing.py#L143" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="preprocess_data" class="level3">
+<h3 class="anchored" data-anchor-id="preprocess_data">preprocess_data</h3>
+<blockquote class="blockquote">
+<pre><code> preprocess_data (ds:str='train', data_path:str|pathlib.Path='../data/',
+                  return_file:bool=True, save_file:bool=False)</code></pre>
+</blockquote>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>ds</td>
+<td>str</td>
+<td>train</td>
+<td>What dataset do we want to preprocess in the data/raw folder</td>
+</tr>
+<tr class="even">
+<td>data_path</td>
+<td>str | Path</td>
+<td>../data/</td>
+<td>The path to the data folder</td>
+</tr>
+<tr class="odd">
+<td>return_file</td>
+<td>bool</td>
+<td>True</td>
+<td>Determines whether or not we save the cleaned Dataframes to data/clean</td>
+</tr>
+<tr class="even">
+<td>save_file</td>
+<td>bool</td>
+<td>False</td>
+<td>Determines whether or not we return the cleaned Dataframes</td>
+</tr>
+</tbody>
+</table>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>segmentation_train_df, summarization_train_df <span class="op">=</span> preprocess_data(<span class="st">"train"</span>, save_file<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(segmentation_train_df), <span class="bu">len</span>(summarization_train_df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<pre><code>(25383, 597)</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>segmentation_train_df.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>course_title</th>
+      <th>lesson_num</th>
+      <th>topic</th>
+      <th>seq</th>
+      <th>prev_seq</th>
+      <th>next_seq</th>
+      <th>is_topic_end</th>
+      <th>next_topic_begin_seq</th>
+      <th>other_topic_seqs</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>Intro</td>
+      <td>[Music] welcome everybody to episode one of a</td>
+      <td>xxBEGIN_TOPICxx</td>
+      <td>chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up</td>
+      <td>False</td>
+      <td>None</td>
+      <td>[christian well not so much fabi uh it's first of all great um to finally start a, podcast the chess podcast i know that um there's a lot of podcasts out there but, i wanted to bring our own tune to the mix and i think uh yeah i'm, excited about that so that's uh the first thing how about yourself fabian well i'm back in the states after it's, been a while at your home it's good to be here it's my first time in uh visiting here and uh, yeah it's been an interesting few months played a lot of chess which is pretty cool but, also a bit difficult at times my home uh here we are not going to m...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>Intro</td>
+      <td>chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up</td>
+      <td>[Music] welcome everybody to episode one of a</td>
+      <td>christian well not so much fabi uh it's first of all great um to finally start a</td>
+      <td>False</td>
+      <td>None</td>
+      <td>[[Music] welcome everybody to episode one of a, podcast the chess podcast i know that um there's a lot of podcasts out there but, i wanted to bring our own tune to the mix and i think uh yeah i'm, excited about that so that's uh the first thing how about yourself fabian well i'm back in the states after it's, been a while at your home it's good to be here it's my first time in uh visiting here and uh, yeah it's been an interesting few months played a lot of chess which is pretty cool but, also a bit difficult at times my home uh here we are not going to mention the location because, those ...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>Intro</td>
+      <td>christian well not so much fabi uh it's first of all great um to finally start a</td>
+      <td>chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up</td>
+      <td>podcast the chess podcast i know that um there's a lot of podcasts out there but</td>
+      <td>False</td>
+      <td>None</td>
+      <td>[[Music] welcome everybody to episode one of a, chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up, i wanted to bring our own tune to the mix and i think uh yeah i'm, excited about that so that's uh the first thing how about yourself fabian well i'm back in the states after it's, been a while at your home it's good to be here it's my first time in uh visiting here and uh, yeah it's been an interesting few months played a lot of chess which is pretty cool but, also a bit difficult at times my home uh here we are not going to mention the location beca...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>Intro</td>
+      <td>podcast the chess podcast i know that um there's a lot of podcasts out there but</td>
+      <td>christian well not so much fabi uh it's first of all great um to finally start a</td>
+      <td>i wanted to bring our own tune to the mix and i think uh yeah i'm</td>
+      <td>False</td>
+      <td>None</td>
+      <td>[[Music] welcome everybody to episode one of a, chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up, christian well not so much fabi uh it's first of all great um to finally start a, excited about that so that's uh the first thing how about yourself fabian well i'm back in the states after it's, been a while at your home it's good to be here it's my first time in uh visiting here and uh, yeah it's been an interesting few months played a lot of chess which is pretty cool but, also a bit difficult at times my home uh here we are not going to mention th...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>Intro</td>
+      <td>i wanted to bring our own tune to the mix and i think uh yeah i'm</td>
+      <td>podcast the chess podcast i know that um there's a lot of podcasts out there but</td>
+      <td>excited about that so that's uh the first thing how about yourself fabian well i'm back in the states after it's</td>
+      <td>False</td>
+      <td>None</td>
+      <td>[[Music] welcome everybody to episode one of a, chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up, christian well not so much fabi uh it's first of all great um to finally start a, podcast the chess podcast i know that um there's a lot of podcasts out there but, been a while at your home it's good to be here it's my first time in uh visiting here and uh, yeah it's been an interesting few months played a lot of chess which is pretty cool but, also a bit difficult at times my home uh here we are not going to mention the location because, those uh cra...</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>summarization_train_df.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>course_title</th>
+      <th>lesson_num</th>
+      <th>start_seconds</th>
+      <th>topic</th>
+      <th>transcript</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>0.0</td>
+      <td>Intro</td>
+      <td>[Music] welcome everybody to episode one of a chess themed podcast with myself christian kirilla and i'm fighting on caruana so what's up christian well not so much fabi uh it's first of all great um to finally start a podcast the chess podcast i know that um there's a lot of podcasts out there but i wanted to bring our own tune to the mix and i think uh yeah i'm excited about that so that's uh the first thing how about yourself fabian well i'm back in the states after it's been a while at your home it's good to be here it's my first time in uh visiting here and uh yeah it's been an intere...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>137.0</td>
+      <td>Candidates 2018</td>
+      <td>camps look like in general yeah well you mentioned the 2018 cycle uh where we worked together we started with the training before the candidates and for me it's interesting because i've i've played a lot of these candidates tournaments and i'm always doing it a bit differently trying different things trying to improve it but sometimes it goes less or more successfully you never know what will work out i think what we did in 2018 not just for the candidates but also for the world championship because i qualified for that i think what we did then was extremely successful um we we arranged it...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>464.0</td>
+      <td>Candidates training</td>
+      <td>going in the candidates like how was the experience yeah i think the preparation was pretty serious it included a bunch of uh camps and preparation devoted to players as i assume i think everyone has the same sort of general approach which is to think about their openings their strategy look at the opponents try to get in shape make sure that you're not you know rusty or blundering things or hallucinating variations uh but there's a lot of nerves and i i felt a lot of nerves before the tournament and i think possibly i you know overworked over trained a bit because it was yeah it was like ...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>610.0</td>
+      <td>Playing for 2nd place</td>
+      <td>were you just like focused on grabbing first well i was only focused on first but of course there were always these thoughts that well maybe second is enough but you can't play for second like let's say once i had achieved plus three in the tournament and john was plus four and i tried to go and go into like full like risk reverse mode which is still difficult to do but let's say i had gone that mode and and achieved it and like finished second with like plus three and john got plus five uh and then like magnus says well i'm going to play right then you also feel kind of stupid you know li...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>C-Squared Podcast</td>
+      <td>1</td>
+      <td>916.0</td>
+      <td>Magnus' WC decision</td>
+      <td>know you can't uh you can't tell him you have to do something i i guess let me rephrase that fair to let you guys play the tournament first and then tell you the decision well i think he said it in a strange way which was that i'll play against alireza which to me is strange because if you don't want to play world championship match i fully understand you know but did he say that did he actually name him yeah that's kind of what he said um yeah he more he like he didn't say definitively like i won't play against anyone but he was like i probably won't play unless it's frozen right and yeah...</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">TODO</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># segmentation_test_df,  summarization_test_df = preprocess_data("test", save_file=True)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
